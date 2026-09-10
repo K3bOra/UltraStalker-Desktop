@@ -206,8 +206,8 @@
       "size": 6258
     },
     "tools/verify_installed_runtime.ps1": {
-      "sha256": "5be4574c5af1d307b42eaa65a1ba45b3bb6f8b54dcb323f8f501e675f3b913a8",
-      "size": 6349
+      "sha256": "b8bfdcfa46a17c3a36cc2c1d4cbbb601af953a90a1a1d68076ce4870d9af4784",
+      "size": 6578
     },
     "ultrastalker_desktop/__init__.py": {
       "sha256": "56305ea4993f8f8d9600647f2e869dfc7e5264cbd907249c419bce47d2995390",
@@ -318,18 +318,18 @@
       "size": 33698
     }
   },
-  "freeze_utc": "2026-09-10T17:29:31.611872Z",
+  "freeze_utc": "2026-09-10T17:44:10.210156Z",
   "product": "Ultra Stalker Desktop",
   "reference": "Ultra Stalker 8.4.1",
   "reference_artifact": "UltraStalker_V7_UPDATE.ipk",
   "reference_artifact_sha256": "d845f917a3a1507c454a7848dd12714ffe720bf568966e0196c06f14f2131876",
   "reference_parity": "behavioral-reference; original 8.4.1 source bytes unavailable",
-  "source_tree_sha256": "ad9c0a0cda8d5cbf0b919b029e0f3dbf6b3cae28d50ccd1118a719c987dc6e97",
+  "source_tree_sha256": "dbfcc5037ea2ef257011e53d371ffc826a9ee5ba42175352e48ca91c89adf882",
   "status": "source-frozen release candidate",
   "validation": {
     "clean_room": "PASS",
     "release_gate": "PASS",
-    "unittest_count": null
+    "unittest_count": 323
   },
   "version": "0.1.0"
 }
