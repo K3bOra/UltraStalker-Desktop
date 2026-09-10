@@ -30,18 +30,56 @@ function Read-Json([string]$Path) {
     return Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
 }
 
-function Registry-Snapshot([string]$Path) {
-    if (-not (Test-Path -LiteralPath $Path)) { return '<missing>' }
-    $Item = Get-ItemProperty -LiteralPath $Path
-    $Values = [ordered]@{}
-    foreach ($Property in @($Item.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS' } | Sort-Object Name)) {
-        if ($Property.Value -is [byte[]]) {
-            $Values[$Property.Name] = [Convert]::ToBase64String($Property.Value)
-        } else {
-            $Values[$Property.Name] = $Property.Value
+function Registry-KeyExists([string]$SubKey) {
+    foreach ($View in @([Microsoft.Win32.RegistryView]::Registry64, [Microsoft.Win32.RegistryView]::Registry32)) {
+        $Base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $View)
+        try {
+            $Key = $Base.OpenSubKey($SubKey, $false)
+            if ($null -ne $Key) {
+                $Key.Close()
+                return $true
+            }
+        }
+        finally {
+            $Base.Close()
         }
     }
-    return ($Values | ConvertTo-Json -Compress -Depth 6)
+    return $false
+}
+
+function Registry-Snapshot([string]$SubKey) {
+    $Snapshot = [ordered]@{}
+    foreach ($View in @([Microsoft.Win32.RegistryView]::Registry64, [Microsoft.Win32.RegistryView]::Registry32)) {
+        $ViewName = [string]$View
+        $Base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $View)
+        try {
+            $Key = $Base.OpenSubKey($SubKey, $false)
+            if ($null -eq $Key) {
+                $Snapshot[$ViewName] = '<missing>'
+                continue
+            }
+            try {
+                $Values = [ordered]@{}
+                foreach ($ValueName in @($Key.GetValueNames() | Sort-Object)) {
+                    $Value = $Key.GetValue($ValueName)
+                    if ($Value -is [byte[]]) {
+                        $Values[$ValueName] = [Convert]::ToBase64String($Value)
+                    }
+                    else {
+                        $Values[$ValueName] = $Value
+                    }
+                }
+                $Snapshot[$ViewName] = $Values
+            }
+            finally {
+                $Key.Close()
+            }
+        }
+        finally {
+            $Base.Close()
+        }
+    }
+    return ($Snapshot | ConvertTo-Json -Compress -Depth 8)
 }
 
 function Assert-InstalledPayload([string]$Root, $Provenance) {
@@ -106,10 +144,10 @@ Remove-Item -LiteralPath $OutputPath -Force -ErrorAction SilentlyContinue
 $SmokeId = [Guid]::NewGuid().ToString('N')
 $SmokeRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("UltraStalker-Smoke-$SmokeId")
 $ProductionAppId = '{8B1EF58E-7E5F-4D2F-9BC5-7A5D0C1E2026}'
-$UninstallRoot = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall'
-$ProductionUninstallKey = Join-Path $UninstallRoot ($ProductionAppId + '_is1')
+$UninstallRoot = 'Software\Microsoft\Windows\CurrentVersion\Uninstall'
+$ProductionUninstallKey = $UninstallRoot + '\' + ($ProductionAppId + '_is1')
 $SmokeAppId = $ProductionAppId + '-smoke-' + $SmokeId
-$SmokeUninstallKey = Join-Path $UninstallRoot ($SmokeAppId + '_is1')
+$SmokeUninstallKey = $UninstallRoot + '\' + ($SmokeAppId + '_is1')
 $ProductionRegistryBefore = Registry-Snapshot $ProductionUninstallKey
 $SmokeRegistryIsolated = $false
 $ProductionRegistryUnchanged = $false
@@ -152,7 +190,7 @@ try {
     if ($InstallExitCode -ne 0) { Fail "Silent installer exited with code $InstallExitCode" }
 
 
-    if (-not (Test-Path -LiteralPath $SmokeUninstallKey)) {
+    if (-not (Registry-KeyExists $SmokeUninstallKey)) {
         Fail 'Smoke installer did not create its isolated uninstall registry key.'
     }
     if ((Registry-Snapshot $ProductionUninstallKey) -ne $ProductionRegistryBefore) {
@@ -228,7 +266,7 @@ try {
     if ($UpgradeExitCode -ne 0) { Fail "Silent upgrade installer exited with code $UpgradeExitCode" }
 
 
-    if (-not (Test-Path -LiteralPath $SmokeUninstallKey)) {
+    if (-not (Registry-KeyExists $SmokeUninstallKey)) {
         Fail 'Upgrade lost the isolated smoke uninstall registry key.'
     }
     if ((Registry-Snapshot $ProductionUninstallKey) -ne $ProductionRegistryBefore) {
@@ -274,7 +312,7 @@ try {
     $UninstallPassed = $true
 
 
-    if (Test-Path -LiteralPath $SmokeUninstallKey) {
+    if (Registry-KeyExists $SmokeUninstallKey) {
         Fail 'Smoke uninstall registry key remains after uninstall.'
     }
     $SmokeRegistryRemoved = $true
