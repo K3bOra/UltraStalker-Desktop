@@ -1,0 +1,12 @@
+# Preserve byte-identical source files across Linux/macOS/Windows checkouts.
+* text=auto eol=lf
+
+# Binary payload/reference formats.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.zip binary
+*.ipk binary
+*.exe binary
+*.dll binary
