@@ -194,8 +194,8 @@
       "size": 45465
     },
     "tools/smoke_installer.ps1": {
-      "sha256": "dc1e6560fee8e6cda098f11260c5c6f0a157b120bd8d31008c23b32b6a5be87a",
-      "size": 22594
+      "sha256": "686c22042adaf4b3fa5fe228dc266aa9a91209c2e967c9afc9538f4a299be0df",
+      "size": 22611
     },
     "tools/source_freeze.py": {
       "sha256": "b86e89847074cb011b68ee9bb73838c66c1985ee8be8b666693ccd84a78677d5",
@@ -318,18 +318,18 @@
       "size": 33698
     }
   },
-  "freeze_utc": "2026-09-10T17:14:47.925046Z",
+  "freeze_utc": "2026-09-10T17:29:31.611872Z",
   "product": "Ultra Stalker Desktop",
   "reference": "Ultra Stalker 8.4.1",
   "reference_artifact": "UltraStalker_V7_UPDATE.ipk",
   "reference_artifact_sha256": "d845f917a3a1507c454a7848dd12714ffe720bf568966e0196c06f14f2131876",
   "reference_parity": "behavioral-reference; original 8.4.1 source bytes unavailable",
-  "source_tree_sha256": "7d3dc0a4054fdcb4158ef7bef31a2bd2a166ffe16faaaf0e257f5356d71c1e83",
+  "source_tree_sha256": "ad9c0a0cda8d5cbf0b919b029e0f3dbf6b3cae28d50ccd1118a719c987dc6e97",
   "status": "source-frozen release candidate",
   "validation": {
     "clean_room": "PASS",
     "release_gate": "PASS",
-    "unittest_count": 323
+    "unittest_count": null
   },
   "version": "0.1.0"
 }
