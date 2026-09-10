@@ -54,10 +54,10 @@ $BuildSelfTestNonce = [Guid]::NewGuid().ToString('N') + [Guid]::NewGuid().ToStri
 $env:ULTRASTALKER_RELEASE_BUILD_SELF_TEST = $BuildSelfTestNonce
 Set-Content -Path $BuildSelfTestMarker -Value $BuildSelfTestNonce -Encoding ASCII -NoNewline
 try {
-    & "dist\$App\$App.exe" --self-test-build
-    if ($LASTEXITCODE -ne 0) {
+    $SelfTestProcess = Start-Process -FilePath (Join-Path $Root "dist\$App\$App.exe") -ArgumentList '--self-test-build' -WorkingDirectory (Join-Path $Root "dist\$App") -Wait -PassThru
+    if ($SelfTestProcess.ExitCode -ne 0) {
         if (Test-Path "dist\$App\SELF_TEST.json") { Get-Content "dist\$App\SELF_TEST.json" }
-        throw 'Packaged executable self-test failed.'
+        throw "Packaged executable self-test failed with exit code $($SelfTestProcess.ExitCode)."
     }
 }
 finally {
