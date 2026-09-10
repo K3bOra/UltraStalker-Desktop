@@ -14,17 +14,26 @@ from unittest.mock import patch
 from ultrastalker_desktop.core.models import MediaItem, Profile, profile_identity
 import ultrastalker_desktop.storage.database as db
 
-# Unit tests do not depend on the host OS credential backend.
-if 'keyring' not in sys.modules:
-    _fake_store = {}
-    fake_keyring = types.SimpleNamespace(
-        get_password=lambda service, user: _fake_store.get((service, user)),
-        set_password=lambda service, user, value: _fake_store.__setitem__((service, user), value),
-        delete_password=lambda service, user: _fake_store.pop((service, user), None),
-    )
-    sys.modules['keyring'] = fake_keyring
+# Unit tests use an isolated in-memory credential store on every host.
+# Test discovery may already have imported the real Windows keyring backend, so
+# never depend on sys.modules import order here.
+_fake_store = {}
+fake_keyring = types.SimpleNamespace(
+    get_password=lambda service, user: _fake_store.get((service, user)),
+    set_password=lambda service, user, value: _fake_store.__setitem__((service, user), value),
+    delete_password=lambda service, user: _fake_store.pop((service, user), None),
+)
 import ultrastalker_desktop.storage.profiles as profiles
 import ultrastalker_desktop.storage.settings as settings
+
+
+def _use_fake_credentials(testcase, module):
+    keyring_patch = patch.object(module, 'keyring', fake_keyring)
+    backend_patch = patch.object(module, 'ensure_secure_backend', return_value='test')
+    keyring_patch.start()
+    backend_patch.start()
+    testcase.addCleanup(backend_patch.stop)
+    testcase.addCleanup(keyring_patch.stop)
 
 
 class StorageTests(unittest.TestCase):
@@ -341,6 +350,7 @@ class StorageTests(unittest.TestCase):
 class ProfileSecurityTests(unittest.TestCase):
     def setUp(self):
         _fake_store.clear()
+        _use_fake_credentials(self, profiles)
 
     def test_profile_atomic_write_fsyncs_before_replace(self):
         with tempfile.TemporaryDirectory() as td:
@@ -895,6 +905,7 @@ class ProfileSecurityTests(unittest.TestCase):
 class SettingsSecurityTests(unittest.TestCase):
     def setUp(self):
         _fake_store.clear()
+        _use_fake_credentials(self, settings)
 
     def test_settings_atomic_write_fsyncs_before_replace(self):
         with tempfile.TemporaryDirectory() as td:
