@@ -230,7 +230,7 @@ $OutputDir = Split-Path -Parent $OutputPath
 New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 Remove-Item -LiteralPath $OutputPath -Force -ErrorAction SilentlyContinue
 
-$SmokeId = [Guid]::NewGuid().ToString('N')
+$SmokeId = [Guid]::NewGuid().ToString('N').Substring(0, 16)
 $SmokeRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("UltraStalker-Smoke-$SmokeId")
 $ProductionAppId = '{8B1EF58E-7E5F-4D2F-9BC5-7A5D0C1E2026}'
 $UninstallRoot = 'Software\Microsoft\Windows\CurrentVersion\Uninstall'
