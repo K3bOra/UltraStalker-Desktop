@@ -42,8 +42,8 @@
       "size": 6234
     },
     "installer/UltraStalkerDesktop.iss": {
-      "sha256": "68ae16e10c9ce36c76e97108788fef90910a089de527edb4bb5959abc836c12a",
-      "size": 2544
+      "sha256": "5bfcf54ccb79088e6ce1cc11fa85d8e6db4856fce6cf0d9e6d9fb95df672a914",
+      "size": 2567
     },
     "licenses/GPL-2.0.txt": {
       "sha256": "edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6",
@@ -318,13 +318,13 @@
       "size": 33698
     }
   },
-  "freeze_utc": "2026-09-10T15:14:58.521727Z",
+  "freeze_utc": "2026-09-10T15:26:18.426213Z",
   "product": "Ultra Stalker Desktop",
   "reference": "Ultra Stalker 8.4.1",
   "reference_artifact": "UltraStalker_V7_UPDATE.ipk",
   "reference_artifact_sha256": "d845f917a3a1507c454a7848dd12714ffe720bf568966e0196c06f14f2131876",
   "reference_parity": "behavioral-reference; original 8.4.1 source bytes unavailable",
-  "source_tree_sha256": "6f23b6eb38d4ce55cde4b409c0dc7fd337c3a0eed16c48d67bcd76e243d30ce4",
+  "source_tree_sha256": "74ef37e2174e5e8c30d5db1adc6b45a7342163a77ef23d8ab483ac1e66e7cb87",
   "status": "source-frozen release candidate",
   "validation": {
     "clean_room": "PASS",
