@@ -37,7 +37,8 @@ class RuntimeLicenseCollectorTests(unittest.TestCase):
                 FakeDist(root, "keyring", "25", [], ["keyring/LICENSE"]),
                 FakeDist(root, "shiboken6", "6.9", [], ["dep/COPYING"]),
             ]
-            with mock.patch.object(licenses.metadata, "distributions", return_value=dists):
+            with mock.patch.object(licenses.metadata, "distributions", return_value=dists), \
+                 mock.patch.object(licenses.sys, "platform", "linux"):
                 out = root / "out"
                 manifest = licenses.collect(out)
             names = {x["name"] for x in manifest["distributions"]}
