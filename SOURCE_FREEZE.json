@@ -6,8 +6,8 @@
       "size": 238
     },
     ".github/workflows/windows-release.yml": {
-      "sha256": "8af97dfb7fe75d0648c35321020569ff3fb6dfa732d885fcd9e1d4fd2c962d5e",
-      "size": 3210
+      "sha256": "5139b1a1f7269731a2b3de68a6cc6220b78eedc701546a29cde1d455bc746a11",
+      "size": 3430
     },
     ".gitignore": {
       "sha256": "16c0cf0e03ec0e7ef5daf5d2b78c49c4a9af681b3952600c8dd9e64b2329d28c",
@@ -34,12 +34,12 @@
       "size": 6763
     },
     "build_windows.bat": {
-      "sha256": "f866d71143c1fe5d438d77339d01db97f46ba2f855fce1278edc8b095f16d4ed",
-      "size": 182
+      "sha256": "2216058a6aa1bf26cb7467fb5233efecad219aff6f2335f25c05f82154d6cbaa",
+      "size": 199
     },
     "build_windows.ps1": {
-      "sha256": "a36828eabc9f5f7148708357d0264a1661d75301b6a6604cb8f79c193d80021d",
-      "size": 5738
+      "sha256": "fdce7d0750377251c841582ca4ab2591ed4dd375220f649a10d8bf089a660171",
+      "size": 5938
     },
     "installer/UltraStalkerDesktop.iss": {
       "sha256": "68ae16e10c9ce36c76e97108788fef90910a089de527edb4bb5959abc836c12a",
@@ -162,8 +162,8 @@
       "size": 4682
     },
     "tools/bootstrap_windows.ps1": {
-      "sha256": "057ee43b5c1694936d06e12ef844ae66fbcb37c0e7a72bb6e8d33b48cfdf57ad",
-      "size": 8752
+      "sha256": "038c22121f9d17cd2cdbc72b52f40b8eee0611ef11ce5d3b3d2dd190ec067791",
+      "size": 8088
     },
     "tools/collect_python_runtime_license.py": {
       "sha256": "a27506c3732204e9d31e2155df2773fff336d415d9e31271ae2023eead92bfdb",
@@ -318,13 +318,13 @@
       "size": 33698
     }
   },
-  "freeze_utc": "2026-09-10T13:59:17.162965Z",
+  "freeze_utc": "2026-09-10T14:11:46.141912Z",
   "product": "Ultra Stalker Desktop",
   "reference": "Ultra Stalker 8.4.1",
   "reference_artifact": "UltraStalker_V7_UPDATE.ipk",
   "reference_artifact_sha256": "d845f917a3a1507c454a7848dd12714ffe720bf568966e0196c06f14f2131876",
   "reference_parity": "behavioral-reference; original 8.4.1 source bytes unavailable",
-  "source_tree_sha256": "1624aa31eec1221344a51cce42649e593bbd15d492942b44266b1e67fc0488a2",
+  "source_tree_sha256": "7681b7730dd51f6ea75cea3862754471699e23f4783447c128c2a0a63a883ea5",
   "status": "source-frozen release candidate",
   "validation": {
     "clean_room": "PASS",
