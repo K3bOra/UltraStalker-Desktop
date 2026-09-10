@@ -79,7 +79,8 @@ class DiagnosticsSelfTestTests(unittest.TestCase):
             modules = {'keyring': keyring, 'PySide6': pyside, 'PySide6.QtWidgets': qtwidgets}
             with patch.dict(sys.modules, modules), \
                  patch.object(diagnostics, 'resource_candidates', return_value=[mpv]), \
-                 patch.object(diagnostics.subprocess, 'run', return_value=result):
+                 patch.object(diagnostics.subprocess, 'run', return_value=result), \
+                 patch.object(diagnostics, 'ensure_secure_backend', return_value='keyring.backends.Windows.WinVaultKeyring'):
                 passed, report = diagnostics.run_self_test()
 
             self.assertTrue(passed)
@@ -124,7 +125,8 @@ class DiagnosticsSelfTestTests(unittest.TestCase):
             modules = {'keyring': keyring, 'PySide6': pyside, 'PySide6.QtWidgets': qtwidgets}
             with patch.dict(sys.modules, modules), \
                  patch.object(diagnostics, 'resource_candidates', return_value=[mpv]), \
-                 patch.object(diagnostics.subprocess, 'run', return_value=result):
+                 patch.object(diagnostics.subprocess, 'run', return_value=result), \
+                 patch.object(diagnostics, 'ensure_secure_backend', return_value='keyring.backends.Windows.WinVaultKeyring'):
                 passed, report = diagnostics.run_self_test()
 
             self.assertFalse(passed)
@@ -161,6 +163,7 @@ class DiagnosticsSelfTestTests(unittest.TestCase):
             with patch.dict(sys.modules, modules), \
                  patch.object(diagnostics, 'resource_candidates', return_value=[mpv]), \
                  patch.object(diagnostics.subprocess, 'run', return_value=result), \
+                 patch.object(diagnostics, 'ensure_secure_backend', return_value='keyring.backends.Windows.WinVaultKeyring'), \
                  patch.object(diagnostics, 'verify_release_integrity', return_value={'status': 'development', 'checked': 0, 'mismatches': []}):
                 passed, report = diagnostics.run_self_test()
 
@@ -257,6 +260,7 @@ class DiagnosticsSelfTestTests(unittest.TestCase):
             with patch.dict(sys.modules, modules), \
                  patch.object(diagnostics, 'resource_candidates', return_value=[mpv]), \
                  patch.object(diagnostics.subprocess, 'run', return_value=result), \
+                 patch.object(diagnostics, 'ensure_secure_backend', return_value='keyring.backends.Windows.WinVaultKeyring'), \
                  patch.object(diagnostics, 'verify_release_integrity', return_value={'status': 'ok', 'checked': 6, 'mismatches': [], 'build_id': 'BUILD-1'}):
                 passed, report = diagnostics.run_self_test(require_release_integrity=True)
 
@@ -291,6 +295,7 @@ class DiagnosticsSelfTestTests(unittest.TestCase):
             with patch.dict(sys.modules, modules), \
                  patch.object(diagnostics, 'resource_candidates', return_value=[mpv]), \
                  patch.object(diagnostics.subprocess, 'run', return_value=result), \
+                 patch.object(diagnostics, 'ensure_secure_backend', return_value='keyring.backends.Windows.WinVaultKeyring'), \
                  patch.object(diagnostics, 'verify_release_integrity', return_value={'status': 'mismatch', 'checked': 6, 'mismatches': ['mpv.exe'], 'build_id': 'BUILD-1'}):
                 passed, report = diagnostics.run_self_test(require_release_integrity=True)
 
