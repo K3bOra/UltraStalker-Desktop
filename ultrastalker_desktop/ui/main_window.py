@@ -14,6 +14,82 @@ from ultrastalker_desktop.support_bundle import create_support_bundle,sanitize_t
 from ultrastalker_desktop.core.tmdb import TMDbClient
 from ultrastalker_desktop.core.artwork import ArtworkCache
 from ultrastalker_desktop.runtime import release_info
+
+ULTRASTALKER_QSS = r"""
+QMainWindow, QWidget#appPage { background: #070c14; color: #f6f8fb; }
+QWidget { color: #f6f8fb; font-family: "Segoe UI"; font-size: 14px; }
+QFrame#topBar, QFrame#panel, QFrame#loginCard, QFrame#heroPanel, QFrame#playerBar {
+    background: #0d1522; border: 1px solid #1d2a3b; border-radius: 14px;
+}
+QFrame#heroPanel {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1, stop:0 #111d31, stop:0.52 #0d2740, stop:1 #07101c);
+    border: 1px solid #244a69;
+}
+QLabel#brand { color: #ffffff; font-size: 25px; font-weight: 800; letter-spacing: 1px; }
+QLabel#heroBrand { color: #ffffff; font-size: 42px; font-weight: 900; letter-spacing: 2px; }
+QLabel#heroSubtitle { color: #9db5ca; font-size: 16px; }
+QLabel#eyebrow { color: #3cc7ff; font-size: 12px; font-weight: 800; letter-spacing: 2px; }
+QLabel#screenTitle { color: #ffffff; font-size: 28px; font-weight: 800; }
+QLabel#muted, QLabel#contextPill, QLabel#statusText { color: #91a2b5; }
+QLabel#contextPill {
+    background: #111f31; border: 1px solid #28415d; border-radius: 12px;
+    padding: 7px 12px; font-size: 12px; font-weight: 700;
+}
+QLabel#countPill {
+    color: #d6ecff; background: #10263a; border: 1px solid #1d5277;
+    border-radius: 10px; padding: 5px 9px; font-size: 11px; font-weight: 800;
+}
+QLabel#sectionLabel { color: #8fa4b8; font-size: 12px; font-weight: 800; letter-spacing: 1px; }
+QLabel#infoTitle { color: #ffffff; font-size: 18px; font-weight: 800; }
+QLabel#artwork {
+    background: #09111d; border: 1px solid #203149; border-radius: 12px;
+}
+QPushButton {
+    background: #111b2a; color: #eaf2f8; border: 1px solid #26354a;
+    border-radius: 10px; padding: 10px 15px; font-weight: 650;
+}
+QPushButton:hover { background: #17263a; border-color: #3d658d; }
+QPushButton:pressed { background: #0d75ad; border-color: #56c9ff; }
+QPushButton:focus { border: 2px solid #38bdf8; }
+QPushButton:disabled { color: #556274; background: #0a111b; border-color: #17202d; }
+QPushButton#primaryButton {
+    background: #0788c8; border: 1px solid #29b6f6; color: white; font-weight: 800;
+}
+QPushButton#primaryButton:hover { background: #0a9fe7; }
+QPushButton#dangerButton { background: #26151b; border-color: #5a2936; color: #ffb9c4; }
+QPushButton#menuCard {
+    text-align: center; padding: 16px 8px; font-size: 15px; font-weight: 800;
+    min-height: 112px; background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #0b1726, stop:1 #07111d);
+    border: 1px solid #2c8fc0; border-radius: 14px;
+}
+QPushButton#menuCard:hover, QPushButton#menuCard:focus {
+    background: #102a42; border: 2px solid #39c4ff; color: #ffffff;
+}
+QPushButton#subCard {
+    min-height: 58px; background: #0e1827; border: 1px solid #213149;
+    font-weight: 750; text-align: left; padding-left: 18px;
+}
+QLineEdit, QComboBox {
+    background: #09111d; color: #f4f7fb; border: 1px solid #263750;
+    border-radius: 10px; padding: 9px 12px; min-height: 24px; selection-background-color: #168ccc;
+}
+QLineEdit:focus, QComboBox:focus { border: 2px solid #2fbdf4; }
+QComboBox QAbstractItemView { background: #0c1522; border: 1px solid #2a3c55; selection-background-color: #116b9d; }
+QListWidget {
+    background: #09111d; border: 1px solid #1c2b3e; border-radius: 11px;
+    padding: 6px; outline: 0;
+}
+QListWidget::item { min-height: 36px; padding: 7px 10px; margin: 2px; border-radius: 7px; color: #c8d5e1; }
+QListWidget::item:hover { background: #101f31; color: #ffffff; }
+QListWidget::item:selected { background: #087fba; color: white; font-weight: 800; }
+QSplitter::handle { background: #070c14; width: 8px; }
+QScrollBar:vertical { background: #09111d; width: 10px; margin: 2px; }
+QScrollBar::handle:vertical { background: #2a3d55; min-height: 32px; border-radius: 5px; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
+QStatusBar { background: #050911; color: #7f91a5; border-top: 1px solid #182435; }
+QMessageBox, QInputDialog { background: #0d1522; }
+"""
+
 class Worker(QThread):
     done=Signal(object);failed=Signal(str)
     def __init__(self,fn):super().__init__();self.fn=fn
@@ -23,21 +99,42 @@ class Worker(QThread):
             logging.getLogger(__name__).warning('Worker task failed: %s', type(e).__name__)
             message=sanitize_text(str(e)).strip() or type(e).__name__
             self.failed.emit(message)
+
 class UltraStalkerWindow(QMainWindow):
     def __init__(self):
-        super().__init__();self.setWindowTitle('Ultra Stalker Desktop '+__version__);self.resize(1280,760);self.adapter=None;self.profile=None;self.source_key='';self.player=MPVBackend();self.current_kind='';self.current_items=[];self.current_playing=None;self.workers=[];self.browser_history=[];self.request_generation=0;self.play_request_generation=0;self.connection_generation=0;self.volume=100;self.volume_generation=0;self.closing=False;self.progress_poll_active=False;self.last_progress=(0.0,0.0)
+        super().__init__();self.setWindowTitle('Ultra Stalker Desktop '+__version__);self.resize(1440,860);self.setMinimumSize(1120,680);self.adapter=None;self.profile=None;self.source_key='';self.player=MPVBackend();self.current_kind='';self.current_items=[];self.current_playing=None;self.workers=[];self.browser_history=[];self.request_generation=0;self.play_request_generation=0;self.connection_generation=0;self.volume=100;self.volume_generation=0;self.closing=False;self.progress_poll_active=False;self.last_progress=(0.0,0.0)
+        self.setStyleSheet(ULTRASTALKER_QSS)
         self.settings=load_settings();self.tmdb=TMDbClient(self.settings.get('tmdb_api_key',''));self.artwork=ArtworkCache();self.artwork_generation=0
         self.stack=QStackedWidget();self.setCentralWidget(self.stack);self.login=self._login();self.home=self._home();self.browser=self._browser();[self.stack.addWidget(x) for x in (self.login,self.home,self.browser)]
-        self.poll=QTimer(self);self.poll.setInterval(5000);self.poll.timeout.connect(self.poll_progress);self.poll.start();self.statusBar().showMessage('Ultra Stalker Desktop '+__version__+' • '+AUTHOR)
+        self.poll=QTimer(self);self.poll.setInterval(5000);self.poll.timeout.connect(self.poll_progress);self.poll.start();self.statusBar().showMessage('Ultra Stalker Desktop '+__version__+' • '+AUTHOR);self._sync_context()
+
     def title(self,t):
-        x=QLabel(t);f=x.font();f.setPointSize(19);f.setBold(True);x.setFont(f);x.setAlignment(Qt.AlignCenter);return x
+        x=QLabel(t);x.setObjectName('screenTitle');x.setAlignment(Qt.AlignLeft|Qt.AlignVCenter);return x
+
+    def _brand_block(self,subtitle='WINDOWS EDITION'):
+        box=QWidget();layout=QVBoxLayout(box);layout.setContentsMargins(0,0,0,0);layout.setSpacing(0)
+        eyebrow=QLabel(subtitle);eyebrow.setObjectName('eyebrow')
+        brand=QLabel('ULTRA STALKER');brand.setObjectName('brand')
+        layout.addWidget(eyebrow);layout.addWidget(brand);return box
+
+    def _page(self):
+        p=QWidget();p.setObjectName('appPage');return p
+
     def _login(self):
-        p=QWidget();l=QVBoxLayout(p);l.setContentsMargins(220,50,220,50);l.addWidget(self.title('Ultra Stalker Desktop'));self.saved=QComboBox();self.saved.addItem('Saved profiles…',None)
+        p=self._page();outer=QVBoxLayout(p);outer.setContentsMargins(70,48,70,48);outer.setSpacing(24)
+        top=QFrame();top.setObjectName('topBar');tl=QHBoxLayout(top);tl.setContentsMargins(24,15,24,15);tl.addWidget(self._brand_block('SECURE PROFILE CONNECTION'));tl.addStretch();ver=QLabel('v'+__version__);ver.setObjectName('contextPill');tl.addWidget(ver);outer.addWidget(top)
+        outer.addStretch(1)
+        card=QFrame();card.setObjectName('loginCard');card.setMaximumWidth(920);cl=QVBoxLayout(card);cl.setContentsMargins(34,30,34,30);cl.setSpacing(14)
+        title=self.title('Connect to your source');cl.addWidget(title);sub=QLabel('Stalker / MAG, Xtream Codes or M3U');sub.setObjectName('muted');cl.addWidget(sub)
+        top_fields=QHBoxLayout();self.saved=QComboBox();self.saved.addItem('Saved profiles…',None)
         for x in load_profiles():self.saved.addItem(x.name,x)
-        self.saved.currentIndexChanged.connect(lambda _:self.fill_profile(self.saved.currentData()) if self.saved.currentData() else None);l.addWidget(self.saved)
-        self.type=QComboBox();self.type.addItems(['stalker','xtream','m3u']);self.name=QLineEdit();self.name.setPlaceholderText('Profile name');self.url=QLineEdit();self.url.setPlaceholderText('Portal / Server / M3U URL');self.mac=QLineEdit();self.mac.setPlaceholderText('MAC for Stalker');self.user=QLineEdit();self.user.setPlaceholderText('Username for Xtream');self.password=QLineEdit();self.password.setPlaceholderText('Password for Xtream');self.password.setEchoMode(QLineEdit.Password)
-        for x in [self.type,self.name,self.url,self.mac,self.user,self.password]:x.setMinimumHeight(36);l.addWidget(x)
-        row=QHBoxLayout();b=QPushButton('Connect');b.setMinimumHeight(44);b.clicked.connect(self.connect_profile);row.addWidget(b);d=QPushButton('Delete Saved Profile');d.setMinimumHeight(44);d.clicked.connect(self.delete_selected_profile);row.addWidget(d);self.back_home=QPushButton('Back to Home');self.back_home.setMinimumHeight(44);self.back_home.setEnabled(False);self.back_home.clicked.connect(self.return_home);row.addWidget(self.back_home);l.addLayout(row);l.addStretch();return p
+        self.saved.currentIndexChanged.connect(lambda _:self.fill_profile(self.saved.currentData()) if self.saved.currentData() else None);top_fields.addWidget(self.saved,2)
+        self.type=QComboBox();self.type.addItems(['stalker','xtream','m3u']);top_fields.addWidget(self.type,1);cl.addLayout(top_fields)
+        self.name=QLineEdit();self.name.setPlaceholderText('Profile name');self.url=QLineEdit();self.url.setPlaceholderText('Portal / Server / M3U URL');self.mac=QLineEdit();self.mac.setPlaceholderText('MAC for Stalker');self.user=QLineEdit();self.user.setPlaceholderText('Username for Xtream');self.password=QLineEdit();self.password.setPlaceholderText('Password for Xtream');self.password.setEchoMode(QLineEdit.Password)
+        for x in [self.name,self.url,self.mac,self.user,self.password]:x.setMinimumHeight(42);cl.addWidget(x)
+        row=QHBoxLayout();row.setSpacing(10);b=QPushButton('CONNECT');b.setObjectName('primaryButton');b.setMinimumHeight(46);b.clicked.connect(self.connect_profile);row.addWidget(b,2);d=QPushButton('DELETE SAVED PROFILE');d.setObjectName('dangerButton');d.setMinimumHeight(46);d.clicked.connect(self.delete_selected_profile);row.addWidget(d,1);self.back_home=QPushButton('BACK TO HOME');self.back_home.setMinimumHeight(46);self.back_home.setEnabled(False);self.back_home.clicked.connect(self.return_home);row.addWidget(self.back_home,1);cl.addLayout(row)
+        center=QHBoxLayout();center.addStretch();center.addWidget(card,1);center.addStretch();outer.addLayout(center);outer.addStretch(2);return p
+
     def fill_profile(self,p):self.type.setCurrentText(p.source_type);self.name.setText(p.name);self.url.setText(p.m3u_url or p.portal_url);self.mac.setText(p.mac);self.user.setText(p.username);self.password.setText(p.password)
     def refresh_profiles(self):
         self.saved.blockSignals(True);self.saved.clear();self.saved.addItem('Saved profiles…',None)
@@ -52,26 +149,51 @@ class UltraStalkerWindow(QMainWindow):
             delete_profile(p.name);self.refresh_profiles();self.busy('Deleted saved profile • '+p.name)
         except Exception as e:
             QMessageBox.warning(self,'Profiles','Could not delete profile.\n\n'+(sanitize_text(str(e)).strip() or type(e).__name__))
+
     def _home(self):
-        p=QWidget();l=QVBoxLayout(p);l.setContentsMargins(80,60,80,60);l.addWidget(self.title('Home'));row=QHBoxLayout()
-        for t in ['Live','Movies','Series']:
-            b=QPushButton(t);b.setMinimumSize(210,110);b.clicked.connect(lambda _,k=t.lower():self.open_kind(k));row.addWidget(b)
-        l.addLayout(row);row2=QHBoxLayout()
-        for text,fn in [('Favorites',self.open_favorites),('History / Continue',self.open_history),('Settings',self.open_settings),('Diagnostics',self.export_diagnostics),('About',self.show_about)]:b=QPushButton(text);b.setMinimumHeight(60);b.clicked.connect(fn);row2.addWidget(b)
-        l.addLayout(row2);self.search=QLineEdit();self.search.setPlaceholderText('Search Live, Movies and Series');self.search.returnPressed.connect(self.global_search);l.addWidget(self.search);b=QPushButton('Profiles');b.clicked.connect(self.show_profiles);l.addWidget(b);return p
+        p=self._page();l=QVBoxLayout(p);l.setContentsMargins(40,28,40,26);l.setSpacing(12)
+        top=QHBoxLayout();top.setContentsMargins(4,0,4,0);top.addWidget(self._brand_block());top.addStretch();self.home_profile=QLabel('NO ACTIVE PROFILE');self.home_profile.setObjectName('contextPill');top.addWidget(self.home_profile);l.addLayout(top)
+        hero=QFrame();hero.setObjectName('heroPanel');hero.setMinimumHeight(250);hl=QHBoxLayout(hero);hl.setContentsMargins(30,28,30,28);copy=QVBoxLayout();ey=QLabel('ULTRA STALKER • WINDOWS');ey.setObjectName('eyebrow');copy.addWidget(ey);hb=QLabel('YOUR ENTERTAINMENT\nIN ONE PLACE');hb.setObjectName('heroBrand');copy.addWidget(hb);hs=QLabel('The Ultra Stalker experience, rebuilt for desktop with the same dark cinematic identity and more room to breathe.');hs.setObjectName('heroSubtitle');hs.setWordWrap(True);hs.setMaximumWidth(680);copy.addWidget(hs);copy.addStretch();hl.addLayout(copy,3);self.home_status=QLabel('READY');self.home_status.setObjectName('contextPill');self.home_status.setAlignment(Qt.AlignCenter);self.home_status.setMinimumWidth(150);hl.addWidget(self.home_status,0,Qt.AlignBottom);l.addWidget(hero)
+        row=QHBoxLayout();row.setSpacing(10)
+        cards=[('LIVE TV\nWatch live channels',self.open_kind,'live'),('MOVIES\nBrowse movie library',self.open_kind,'movies'),('SERIES\nExplore TV series',self.open_kind,'series'),('CONTINUE\nResume watching',self.open_history,None),('FAVORITES\nYour saved content',self.open_favorites,None),('SEARCH\nFind content quickly',self._focus_home_search,None),('SETTINGS\nPortal & player settings',self.open_settings,None)]
+        for text,fn,arg in cards:
+            b=QPushButton(text);b.setObjectName('menuCard');b.setMinimumWidth(105)
+            if arg is None:b.clicked.connect(fn)
+            else:b.clicked.connect(lambda _,kind=arg,callback=fn:callback(kind))
+            row.addWidget(b,1)
+        l.addLayout(row)
+        section=QHBoxLayout();label=QLabel('CONTINUE WATCHING');label.setObjectName('eyebrow');section.addWidget(label);section.addStretch();hint=QLabel('Enter / double-click to open  •  Esc / Back to return');hint.setObjectName('muted');section.addWidget(hint);l.addLayout(section)
+        lower=QFrame();lower.setObjectName('panel');ll=QHBoxLayout(lower);ll.setContentsMargins(16,14,16,14);self.search=QLineEdit();self.search.setPlaceholderText('Search Live, Movies and Series');self.search.setMinimumHeight(44);self.search.returnPressed.connect(self.global_search);ll.addWidget(self.search,1);history_btn=QPushButton('OPEN HISTORY');history_btn.clicked.connect(self.open_history);ll.addWidget(history_btn);profiles=QPushButton('PROFILES');profiles.clicked.connect(self.show_profiles);ll.addWidget(profiles);l.addWidget(lower);l.addStretch();return p
+
+    def _focus_home_search(self):
+        self.search.setFocus();self.search.selectAll();self.busy('Search ready')
+
     def _browser(self):
-        p=QWidget();v=QVBoxLayout(p);self.btitle=self.title('Browser');v.addWidget(self.btitle)
-        self.backdrop_view=QLabel();self.backdrop_view.setFixedHeight(145);self.backdrop_view.setAlignment(Qt.AlignCenter);self.backdrop_view.hide();v.addWidget(self.backdrop_view)
-        split=QSplitter();self.categories=QListWidget();self.items=QListWidget();split.addWidget(self.categories);split.addWidget(self.items);split.setStretchFactor(1,3);v.addWidget(split)
+        p=self._page();v=QVBoxLayout(p);v.setContentsMargins(30,24,30,24);v.setSpacing(12)
+        top=QFrame();top.setObjectName('topBar');th=QHBoxLayout(top);th.setContentsMargins(16,10,18,10);back=QPushButton('‹  BACK');back.setMinimumWidth(105);back.clicked.connect(self.browser_back);th.addWidget(back);self.btitle=self.title('Browser');th.addWidget(self.btitle,1);self.browser_context=QLabel('BROWSE');self.browser_context.setObjectName('contextPill');th.addWidget(self.browser_context);v.addWidget(top)
+        split=QSplitter(Qt.Horizontal)
+        cat_panel=QFrame();cat_panel.setObjectName('panel');cl=QVBoxLayout(cat_panel);cl.setContentsMargins(12,14,12,12);lab=QLabel('CATEGORIES');lab.setObjectName('sectionLabel');cl.addWidget(lab);self.categories=QListWidget();self.categories.setMinimumWidth(240);self.categories.setMaximumWidth(360);cl.addWidget(self.categories,1);split.addWidget(cat_panel)
+        items_panel=QFrame();items_panel.setObjectName('panel');il=QVBoxLayout(items_panel);il.setContentsMargins(12,14,12,12);ih=QHBoxLayout();self.items_heading=QLabel('CONTENT');self.items_heading.setObjectName('sectionLabel');ih.addWidget(self.items_heading);ih.addStretch();self.browser_count=QLabel('0 ITEMS');self.browser_count.setObjectName('countPill');ih.addWidget(self.browser_count);il.addLayout(ih);self.items=QListWidget();self.items.setMinimumWidth(390);self.items.setUniformItemSizes(True);il.addWidget(self.items,1);split.addWidget(items_panel)
+        detail_panel=QFrame();detail_panel.setObjectName('panel');dl=QVBoxLayout(detail_panel);dl.setContentsMargins(14,14,14,14);dl.setSpacing(12);lab=QLabel('NOW SELECTED');lab.setObjectName('sectionLabel');dl.addWidget(lab);self.backdrop_view=QLabel();self.backdrop_view.setObjectName('artwork');self.backdrop_view.setFixedHeight(230);self.backdrop_view.setMinimumWidth(410);self.backdrop_view.setAlignment(Qt.AlignCenter);self.backdrop_view.hide();dl.addWidget(self.backdrop_view);details=QHBoxLayout();self.poster_view=QLabel();self.poster_view.setObjectName('artwork');self.poster_view.setFixedSize(150,220);self.poster_view.setAlignment(Qt.AlignCenter);self.poster_view.hide();details.addWidget(self.poster_view);self.info=QLabel('Select an item to see details');self.info.setObjectName('muted');self.info.setWordWrap(True);self.info.setAlignment(Qt.AlignTop|Qt.AlignLeft);details.addWidget(self.info,1);dl.addLayout(details);dl.addStretch();split.addWidget(detail_panel)
+        split.setStretchFactor(0,1);split.setStretchFactor(1,2);split.setStretchFactor(2,2);split.setSizes([260,520,560]);v.addWidget(split,1)
         self.categories.itemClicked.connect(self.load_category);self.categories.itemActivated.connect(self.load_category);self.items.itemDoubleClicked.connect(self.activate_item);self.items.itemSelectionChanged.connect(self.show_info)
-        details=QHBoxLayout();self.poster_view=QLabel();self.poster_view.setFixedSize(145,205);self.poster_view.setAlignment(Qt.AlignCenter);self.poster_view.hide();details.addWidget(self.poster_view)
-        self.info=QLabel('');self.info.setWordWrap(True);self.info.setAlignment(Qt.AlignTop|Qt.AlignLeft);details.addWidget(self.info,1);v.addLayout(details)
-        r=QHBoxLayout()
-        for text,fn in [('Favorite',self.favorite),('Play / Open',self.play_selected),('Pause / Resume',self.pause_resume),('Stop',self.stop_playback),('Back',self.browser_back)]:b=QPushButton(text);b.clicked.connect(fn);r.addWidget(b)
-        v.addLayout(r);controls=QHBoxLayout()
-        for text,fn in [('Seek -30s',lambda:self.seek_by(-30)),('Seek +30s',lambda:self.seek_by(30)),('Volume -',lambda:self.adjust_volume(-10)),('Volume +',lambda:self.adjust_volume(10)),('Audio Track',self.cycle_audio),('Subtitle Track',self.cycle_subtitle),('Fullscreen',self.toggle_fullscreen)]:b=QPushButton(text);b.clicked.connect(fn);controls.addWidget(b)
-        v.addLayout(controls);return p
-    def busy(self,t):self.statusBar().showMessage(t)
+        player=QFrame();player.setObjectName('playerBar');pv=QVBoxLayout(player);pv.setContentsMargins(12,10,12,10);pv.setSpacing(8);r=QHBoxLayout();r.setSpacing(8)
+        for text,fn,name in [('FAVORITE',self.favorite,''),('PLAY / OPEN',self.play_selected,'primaryButton'),('PAUSE / RESUME',self.pause_resume,''),('STOP',self.stop_playback,''),('BACK',self.browser_back,'')]:
+            b=QPushButton(text);b.setObjectName(name);b.clicked.connect(fn);r.addWidget(b,1)
+        pv.addLayout(r);controls=QHBoxLayout();controls.setSpacing(8)
+        for text,fn in [('SEEK -30s',lambda:self.seek_by(-30)),('SEEK +30s',lambda:self.seek_by(30)),('VOL -',lambda:self.adjust_volume(-10)),('VOL +',lambda:self.adjust_volume(10)),('AUDIO',self.cycle_audio),('SUBTITLES',self.cycle_subtitle),('FULLSCREEN',self.toggle_fullscreen)]:
+            b=QPushButton(text);b.clicked.connect(fn);controls.addWidget(b,1)
+        pv.addLayout(controls);v.addWidget(player);return p
+
+    def _sync_context(self):
+        profile_text=('CONNECTED  •  '+self.profile.name+'  •  '+self.profile.source_type.upper()) if self.profile else 'NO ACTIVE PROFILE'
+        if hasattr(self,'home_profile'):self.home_profile.setText(profile_text)
+        if hasattr(self,'home_status'):self.home_status.setText('ONLINE' if self.profile else 'READY')
+        if hasattr(self,'browser_context'):self.browser_context.setText((self.current_kind or 'BROWSE').upper())
+
+    def busy(self,t):
+        self.statusBar().showMessage(t)
+        if hasattr(self,'home_status') and self.stack.currentWidget() is self.home:self.home_status.setText(str(t).upper()[:38])
     def _worker_relevant(self,w):
         if self.closing:return False
         active=getattr(w,'active_callback',None)
@@ -129,7 +251,7 @@ class UltraStalkerWindow(QMainWindow):
         # any in-flight replacement login. A late successful connection must
         # never switch profiles after the user has returned Home.
         self.connection_generation+=1
-        self.stack.setCurrentWidget(self.home);self.busy('Connected • '+self.profile.name)
+        self.stack.setCurrentWidget(self.home);self._sync_context();self.busy('Connected • '+self.profile.name)
 
     def connect_profile(self):
         import re
@@ -168,13 +290,13 @@ class UltraStalkerWindow(QMainWindow):
             self.request_generation+=1;self.play_request_generation+=1;self.save_progress();self.player.stop();self.current_playing=None
             self.profile=p;self.source_key=profile_identity(p);self.adapter=adapter
             if persisted:self.refresh_profiles()
-            self.back_home.setEnabled(True);self.stack.setCurrentWidget(self.home)
+            self.back_home.setEnabled(True);self.stack.setCurrentWidget(self.home);self._sync_context()
             self.busy('Connected • '+p.name+(' • session only' if not persisted else ''))
         self.work(task,connected,active=lambda:generation==self.connection_generation,error=lambda _message:self.busy('Connection failed'))
     def open_kind(self,k):
         if not self.adapter:return
         self.request_generation+=1;generation=self.request_generation
-        self.browser_history.clear();self.current_kind=k;self.btitle.setText(k.title());self.categories.clear();self.items.clear();self.stack.setCurrentWidget(self.browser)
+        self.browser_history.clear();self.current_kind=k;self.btitle.setText(k.title());self.items_heading.setText(k.upper());self.browser_context.setText(k.upper());self.categories.clear();self.items.clear();self.browser_count.setText('0 ITEMS');self.stack.setCurrentWidget(self.browser)
         adapter=self.adapter;cancelled=lambda:generation!=self.request_generation or self.closing or adapter is not self.adapter;self.work(lambda:adapter.categories(k,cancelled=cancelled),lambda rows:self.set_categories(rows) if not cancelled() else None,active=lambda:not cancelled(),error=lambda _message:self.busy('Could not load categories'))
     def set_categories(self,rows):
         self.categories.clear();a=QListWidgetItem('All');a.setData(Qt.UserRole,'');self.categories.addItem(a)
@@ -190,6 +312,7 @@ class UltraStalkerWindow(QMainWindow):
             suffix=(f'  ({m.year})' if m.year else '')
             if m.kind=='episode' and m.season is not None:suffix=f'  S{m.season:02d}E{(m.episode or 0):02d}'
             x=QListWidgetItem(m.title+suffix);x.setData(Qt.UserRole,m);self.items.addItem(x)
+        if hasattr(self,'browser_count'):self.browser_count.setText(str(len(rows))+' ITEMS')
     def filter_items(self,q):
         q=q.strip().lower();self.render([x for x in self.current_items if q in x.title.lower()] if q else self.current_items);self.stack.setCurrentWidget(self.browser)
     def global_search(self):
@@ -210,7 +333,7 @@ class UltraStalkerWindow(QMainWindow):
             return out
         def done(rows):
             if generation!=self.request_generation or adapter is not self.adapter:return
-            self.browser_history.clear();self.current_items=rows;self.categories.clear();self.btitle.setText('Search • '+query_text);self.render(rows);self.stack.setCurrentWidget(self.browser);self.busy(str(len(rows))+' results')
+            self.browser_history.clear();self.current_items=rows;self.categories.clear();self.btitle.setText('Search • '+query_text);self.items_heading.setText('SEARCH RESULTS');self.browser_context.setText('SEARCH');self.render(rows);self.stack.setCurrentWidget(self.browser);self.busy(str(len(rows))+' results')
         self.work(task,done,active=lambda:generation==self.request_generation and adapter is self.adapter)
     def selected(self):x=self.items.currentItem();return x.data(Qt.UserRole) if x else None
     def _selection_marker(self,m=None):
@@ -242,7 +365,11 @@ class UltraStalkerWindow(QMainWindow):
         m=self.selected();self.artwork_generation+=1;generation=self.artwork_generation;self._clear_artwork()
         if not m:self.info.setText('');return
         marker=self._selection_marker(m)
-        self.info.setText((m.description or '')+('   Rating: '+m.rating if m.rating else ''))
+        meta=[]
+        if m.year:meta.append(str(m.year))
+        if m.rating:meta.append('Rating '+str(m.rating))
+        heading=m.title+('  •  '+'  •  '.join(meta) if meta else '')
+        self.info.setText(heading+'\n\n'+(m.description or 'No description available.'))
         # Delay artwork work slightly so fast keyboard/list navigation does not
         # spawn downloads for every item merely passed over.
         QTimer.singleShot(120,lambda:self._load_selected_artwork(marker,generation))
@@ -256,7 +383,11 @@ class UltraStalkerWindow(QMainWindow):
                 if not cur.year:cur.year=str(meta.get('year') or '')
                 if not cur.poster:cur.poster=str(meta.get('poster') or '')
                 if not cur.backdrop:cur.backdrop=str(meta.get('backdrop') or '')
-                self.info.setText((cur.description or '')+('   Rating: '+cur.rating if cur.rating else ''))
+                meta=[]
+                if cur.year:meta.append(str(cur.year))
+                if cur.rating:meta.append('Rating '+str(cur.rating))
+                heading=cur.title+('  •  '+'  •  '.join(meta) if meta else '')
+                self.info.setText(heading+'\n\n'+(cur.description or 'No description available.'))
                 self._load_selected_artwork(marker,generation)
             self.work(lambda:self.tmdb.search(m.title,m.kind,m.year),done,active=is_current)
     def activate_item(self,_):
@@ -289,7 +420,7 @@ class UltraStalkerWindow(QMainWindow):
             self.current_kind=kind;self.current_items=rows;self.btitle.setText(title);self.render(rows)
             if 0 <= category_row < self.categories.count():self.categories.setCurrentRow(category_row)
             self.busy(str(len(rows))+' items');return
-        self.stack.setCurrentWidget(self.home)
+        self.stack.setCurrentWidget(self.home);self._sync_context()
     def play_selected(self):
         m=self.selected()
         if not m:return
@@ -398,13 +529,13 @@ class UltraStalkerWindow(QMainWindow):
         try:rows=favorites(self.source_key)
         except Exception as exc:
             logging.getLogger(__name__).warning('Favorites unavailable: %s',type(exc).__name__);self.busy('Favorites unavailable');return
-        self.browser_history.clear();self.categories.clear();self.btitle.setText('Favorites');self.current_items=rows;self.render(self.current_items);self.stack.setCurrentWidget(self.browser)
+        self.browser_history.clear();self.categories.clear();self.btitle.setText('Favorites');self.items_heading.setText('FAVORITES');self.browser_context.setText('FAVORITES');self.current_items=rows;self.render(self.current_items);self.stack.setCurrentWidget(self.browser)
     def open_history(self):
         if not self.profile:return
         try:rows=history(self.source_key)
         except Exception as exc:
             logging.getLogger(__name__).warning('History unavailable: %s',type(exc).__name__);self.busy('History unavailable');return
-        self.browser_history.clear();self.categories.clear();self.btitle.setText('History / Continue Watching');self.current_items=[x[0] for x in rows];self.render(self.current_items)
+        self.browser_history.clear();self.categories.clear();self.btitle.setText('History / Continue Watching');self.items_heading.setText('CONTINUE WATCHING');self.browser_context.setText('HISTORY');self.current_items=[x[0] for x in rows];self.render(self.current_items)
         for i,(media,position,duration) in enumerate(rows):
             row=self.items.item(i)
             if not row:continue
