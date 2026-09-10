@@ -62,8 +62,11 @@ try {
         [DateTime]::MinValue
     }
 
-    & $Exe --self-test
-    $ExitCode = $LASTEXITCODE
+    $SelfTestProcess = Start-Process -FilePath $Exe -ArgumentList '--self-test' -WorkingDirectory $InstallDir -Wait -PassThru
+    if ($null -eq $SelfTestProcess) {
+        Fail 'Installed runtime self-test process did not start'
+    }
+    $ExitCode = [int]$SelfTestProcess.ExitCode
     if ($ExitCode -ne 0) {
         Fail "Installed runtime self-test exited with code $ExitCode"
     }
