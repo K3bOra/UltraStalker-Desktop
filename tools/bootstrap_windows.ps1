@@ -43,7 +43,7 @@ if (-not [string]::IsNullOrWhiteSpace($PythonExe)) {
         throw "Explicit Python interpreter was not found: $PythonExe"
     }
     $ChosenExe = (Resolve-Path -LiteralPath $PythonExe).Path
-    & $ChosenExe -c 'import platform,struct,sys; raise SystemExit(0 if platform.python_implementation()=="CPython" and (3,11) <= sys.version_info[:2] < (3,15) and struct.calcsize("P") * 8 == 64 else 1)'
+    'import platform,struct,sys; raise SystemExit(0 if platform.python_implementation()=="CPython" and (3,11) <= sys.version_info[:2] < (3,15) and struct.calcsize("P") * 8 == 64 else 1)' | & $ChosenExe -
     if ($LASTEXITCODE -ne 0) {
         throw 'Explicit Python interpreter must be 64-bit CPython 3.11-3.14.'
     }
@@ -82,7 +82,7 @@ else {
         }
 
         try {
-            & $Exe @PythonArgs -c 'import platform,struct,sys; raise SystemExit(0 if platform.python_implementation()=="CPython" and (3,11) <= sys.version_info[:2] < (3,15) and struct.calcsize("P") * 8 == 64 else 1)' 2>$null
+            'import platform,struct,sys; raise SystemExit(0 if platform.python_implementation()=="CPython" and (3,11) <= sys.version_info[:2] < (3,15) and struct.calcsize("P") * 8 == 64 else 1)' | & $Exe @PythonArgs - 2>$null
             if ($LASTEXITCODE -eq 0) {
                 $ChosenExe = $Exe
                 $ChosenArgs = $PythonArgs
@@ -113,7 +113,7 @@ function New-IsolatedVenv {
     & $ChosenExe @ChosenArgs -m venv .venv
     if ($LASTEXITCODE -ne 0) { throw 'Virtual environment creation failed.' }
     $Python = Join-Path $Root '.venv\Scripts\python.exe'
-    & $Python -c 'import platform,struct,sys; raise SystemExit(0 if platform.python_implementation()=="CPython" and (3,11) <= sys.version_info[:2] < (3,15) and struct.calcsize("P") * 8 == 64 else 1)'
+    'import platform,struct,sys; raise SystemExit(0 if platform.python_implementation()=="CPython" and (3,11) <= sys.version_info[:2] < (3,15) and struct.calcsize("P") * 8 == 64 else 1)' | & $Python -
     if ($LASTEXITCODE -ne 0) { throw 'Build venv is not supported 64-bit CPython 3.11-3.14.' }
     $VenvVersion = (& $Python -c 'import platform; print(platform.python_version())').Trim()
     if ($VenvVersion -ne $ChosenPythonVersion) { throw 'Build venv Python version changed from the selected base interpreter.' }
