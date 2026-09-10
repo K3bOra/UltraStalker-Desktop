@@ -78,23 +78,23 @@ if ($LASTEXITCODE -ne 0) { throw 'Fingerprint generation failed.' }
 & $Vpy tools\release_gate.py --root . --dist "dist\$App"
 if ($LASTEXITCODE -ne 0) { throw 'Distribution release gate failed.' }
 
-$Iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
-if (-not $Iscc) {
-    $Known = @(
+$IsccCommand = Get-Command ISCC.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+$IsccPath = if ($IsccCommand) { $IsccCommand.Path } else { $null }
+if (-not $IsccPath) {
+    $IsccPath = @(
         "$env:ProgramFiles\Inno Setup 7\ISCC.exe",
         "${env:ProgramFiles(x86)}\Inno Setup 7\ISCC.exe",
         "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
         "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
-    ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
-    if ($Known) { $Iscc = Get-Item $Known }
+    ) | Where-Object { $_ -and (Test-Path $_ -PathType Leaf) } | Select-Object -First 1
 }
 
-if (-not $Iscc) {
+if (-not $IsccPath) {
     throw 'Inno Setup 6 or 7 was not found. Final Windows release requires an installer; install Inno Setup and rerun build_windows.bat.'
 }
 
 Step 'Building installer with Inno Setup'
-& $Iscc.FullName 'installer\UltraStalkerDesktop.iss'
+& $IsccPath 'installer\UltraStalkerDesktop.iss'
 if ($LASTEXITCODE -ne 0) { throw 'Inno Setup build failed.' }
 
 $Installers = @(Get-ChildItem 'release\UltraStalkerDesktop_Setup_*.exe')
