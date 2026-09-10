@@ -314,17 +314,17 @@
       "size": 0
     },
     "ultrastalker_desktop/ui/main_window.py": {
-      "sha256": "9511cca11f23e3c0c0540742d8178a67f3d256cc7c6662b1fc896a281d5fb1c9",
-      "size": 33698
+      "sha256": "b93432507f078c4077b9dd760075e582255a63a1f7b6dbdf466f898b5ac45a07",
+      "size": 44660
     }
   },
-  "freeze_utc": "2026-09-10T17:44:10.210156Z",
+  "freeze_utc": "2026-09-10T18:24:35.018932Z",
   "product": "Ultra Stalker Desktop",
   "reference": "Ultra Stalker 8.4.1",
   "reference_artifact": "UltraStalker_V7_UPDATE.ipk",
   "reference_artifact_sha256": "d845f917a3a1507c454a7848dd12714ffe720bf568966e0196c06f14f2131876",
   "reference_parity": "behavioral-reference; original 8.4.1 source bytes unavailable",
-  "source_tree_sha256": "dbfcc5037ea2ef257011e53d371ffc826a9ee5ba42175352e48ca91c89adf882",
+  "source_tree_sha256": "7719ec932b453795d7f1389672812e14ce9923c5195840c47b4f9125bae10606",
   "status": "source-frozen release candidate",
   "validation": {
     "clean_room": "PASS",
