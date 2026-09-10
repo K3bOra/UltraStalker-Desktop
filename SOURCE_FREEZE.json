@@ -277,6 +277,10 @@
       "sha256": "8200e3bbd1c08502e82272bbed3aa3573bf126c6c65d6c344fd4f463e77671c5",
       "size": 17648
     },
+    "ultrastalker_desktop/player/vlc_backend.py": {
+      "sha256": "3637dd4de06cad087f9700873c003cce40dd57ed8d0614703836af2913491b71",
+      "size": 13943
+    },
     "ultrastalker_desktop/runtime.py": {
       "sha256": "015381790cc9a2e8f4c288ce62d8eefabfaf40622793b3c8f880a55d069d8456",
       "size": 9018
@@ -314,17 +318,17 @@
       "size": 0
     },
     "ultrastalker_desktop/ui/main_window.py": {
-      "sha256": "b93432507f078c4077b9dd760075e582255a63a1f7b6dbdf466f898b5ac45a07",
+      "sha256": "b6c4c986809fdfb9a9aa19f4c640af94061d8dbbb630f8dc31aa0712638ee472",
       "size": 44660
     }
   },
-  "freeze_utc": "2026-09-10T18:24:35.018932Z",
+  "freeze_utc": "2026-09-10T19:04:15.130712Z",
   "product": "Ultra Stalker Desktop",
   "reference": "Ultra Stalker 8.4.1",
   "reference_artifact": "UltraStalker_V7_UPDATE.ipk",
   "reference_artifact_sha256": "d845f917a3a1507c454a7848dd12714ffe720bf568966e0196c06f14f2131876",
   "reference_parity": "behavioral-reference; original 8.4.1 source bytes unavailable",
-  "source_tree_sha256": "7719ec932b453795d7f1389672812e14ce9923c5195840c47b4f9125bae10606",
+  "source_tree_sha256": "a86218ebf4481f232751c56c7a3803e0af0958a603f57229f4628a6383aedea3",
   "status": "source-frozen release candidate",
   "validation": {
     "clean_room": "PASS",
