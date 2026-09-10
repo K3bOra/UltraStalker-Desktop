@@ -33,14 +33,37 @@ Step 'Checking Windows host'
 if ($env:OS -ne 'Windows_NT') { throw 'This build pipeline must run on Windows.' }
 
 Step 'Locating Python 3.11+'
+$ProbePath = Join-Path $env:TEMP ("ultrastalker-python-probe-" + [Guid]::NewGuid().ToString('N') + '.py')
+$ProbeCode = @'
+import platform
+import struct
+import sys
+
+bits = struct.calcsize("P") * 8
+valid = (
+    platform.python_implementation() == "CPython"
+    and (3, 11) <= sys.version_info[:2] < (3, 15)
+    and bits == 64
+)
+print(
+    "implementation=%s version=%s bits=%s executable=%s"
+    % (platform.python_implementation(), platform.python_version(), bits, sys.executable)
+)
+raise SystemExit(0 if valid else 1)
+'@
+[System.IO.File]::WriteAllText($ProbePath, $ProbeCode, [System.Text.Encoding]::ASCII)
+
 $Candidates = @()
+if ($env:ULTRASTALKER_PYTHON_EXE) {
+    $Candidates += [PSCustomObject]@{ Exe = [string]$env:ULTRASTALKER_PYTHON_EXE; Args = @() }
+}
 if ($env:pythonLocation) {
     $Candidates += [PSCustomObject]@{ Exe = (Join-Path $env:pythonLocation 'python.exe'); Args = @() }
 }
 if ($env:Python3_ROOT_DIR) {
     $Candidates += [PSCustomObject]@{ Exe = (Join-Path $env:Python3_ROOT_DIR 'python.exe'); Args = @() }
 }
-$PythonCommand = Get-Command python.exe -ErrorAction SilentlyContinue
+$PythonCommand = Get-Command python.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($PythonCommand -and $PythonCommand.Source) {
     $Candidates += [PSCustomObject]@{ Exe = [string]$PythonCommand.Source; Args = @() }
 }
@@ -54,28 +77,44 @@ $Candidates += @(
 
 $ChosenExe = $null
 $ChosenArgs = @()
-foreach ($c in $Candidates) {
-    $Exe = [string]$c.Exe
-    $PythonArgs = @($c.Args)
-    if ([string]::IsNullOrWhiteSpace($Exe)) { continue }
+try {
+    foreach ($c in $Candidates) {
+        $Exe = [string]$c.Exe
+        $PythonArgs = @()
+        if ($null -ne $c.Args) { $PythonArgs = [string[]]@($c.Args) }
+        if ([string]::IsNullOrWhiteSpace($Exe)) { continue }
 
-    $LooksLikePath = $Exe.Contains('\\') -or $Exe.Contains('/')
-    if ($LooksLikePath) {
-        if (-not (Test-Path -LiteralPath $Exe -PathType Leaf)) { continue }
-    }
-    elseif (-not (Get-Command $Exe -ErrorAction SilentlyContinue)) {
-        continue
-    }
+        $LooksLikePath = $Exe.Contains('\') -or $Exe.Contains('/')
+        if ($LooksLikePath) {
+            if (-not (Test-Path -LiteralPath $Exe -PathType Leaf)) {
+                Write-Host "[INFO] Python candidate missing: $Exe"
+                continue
+            }
+        }
+        elseif (-not (Get-Command $Exe -ErrorAction SilentlyContinue)) {
+            Write-Host "[INFO] Python command unavailable: $Exe $($PythonArgs -join ' ')"
+            continue
+        }
 
-    try {
-        & $Exe @PythonArgs -c 'import platform,struct,sys; raise SystemExit(0 if platform.python_implementation()=="CPython" and (3,11) <= sys.version_info[:2] < (3,15) and struct.calcsize("P") * 8 == 64 else 1)' 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            $ChosenExe = $Exe
-            $ChosenArgs = $PythonArgs
-            break
+        try {
+            Write-Host "[INFO] Probing Python candidate: $Exe $($PythonArgs -join ' ')"
+            $ProbeOutput = @(& $Exe @PythonArgs $ProbePath 2>&1)
+            $ProbeExit = $LASTEXITCODE
+            foreach ($Line in $ProbeOutput) { Write-Host "[PYTHON] $Line" }
+            if ($ProbeExit -eq 0) {
+                $ChosenExe = $Exe
+                $ChosenArgs = $PythonArgs
+                break
+            }
+            Write-Host "[INFO] Python candidate rejected with exit code $ProbeExit"
+        }
+        catch {
+            Write-Host ("[INFO] Python candidate failed: " + $_.Exception.GetType().Name)
         }
     }
-    catch {}
+}
+finally {
+    Remove-Item -LiteralPath $ProbePath -Force -ErrorAction SilentlyContinue
 }
 if (-not $ChosenExe) { throw '64-bit CPython 3.11-3.14 was not found.' }
 Ok ("Using " + $ChosenExe + " " + ($ChosenArgs -join ' '))
