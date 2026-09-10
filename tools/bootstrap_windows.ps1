@@ -33,28 +33,57 @@ Step 'Checking Windows host'
 if ($env:OS -ne 'Windows_NT') { throw 'This build pipeline must run on Windows.' }
 
 Step 'Locating Python 3.11+'
-$Candidates = @(
-    @{ Exe = 'py'; Args = @('-3.12') },
-    @{ Exe = 'py'; Args = @('-3.13') },
-    @{ Exe = 'py'; Args = @('-3.14') },
-    @{ Exe = 'py'; Args = @('-3.11') },
-    @{ Exe = 'python'; Args = @() }
-)
-$Chosen = $null
-foreach ($c in $Candidates) {
-    if (-not (Get-Command $c.Exe -ErrorAction SilentlyContinue)) { continue }
-    try {
-        & $c.Exe @($c.Args) -c 'import struct,sys; raise SystemExit(0 if sys.version_info >= (3,11) and sys.version_info < (3,15) and struct.calcsize("P") * 8 == 64 else 1)' 2>$null
-        if ($LASTEXITCODE -eq 0) { $Chosen = $c; break }
-    } catch {}
+$Candidates = @()
+if ($env:pythonLocation) {
+    $Candidates += [PSCustomObject]@{ Exe = (Join-Path $env:pythonLocation 'python.exe'); Args = @() }
 }
-if (-not $Chosen) { throw '64-bit CPython 3.11-3.14 was not found.' }
-Ok ("Using " + $Chosen.Exe + " " + ($Chosen.Args -join ' '))
-$ChosenPythonVersion = (& $Chosen.Exe @($Chosen.Args) -c 'import platform; print(platform.python_version())').Trim()
+if ($env:Python3_ROOT_DIR) {
+    $Candidates += [PSCustomObject]@{ Exe = (Join-Path $env:Python3_ROOT_DIR 'python.exe'); Args = @() }
+}
+$PythonCommand = Get-Command python.exe -ErrorAction SilentlyContinue
+if ($PythonCommand -and $PythonCommand.Source) {
+    $Candidates += [PSCustomObject]@{ Exe = [string]$PythonCommand.Source; Args = @() }
+}
+$Candidates += @(
+    [PSCustomObject]@{ Exe = 'python.exe'; Args = @() },
+    [PSCustomObject]@{ Exe = 'py.exe'; Args = @('-3.13') },
+    [PSCustomObject]@{ Exe = 'py.exe'; Args = @('-3.12') },
+    [PSCustomObject]@{ Exe = 'py.exe'; Args = @('-3.14') },
+    [PSCustomObject]@{ Exe = 'py.exe'; Args = @('-3.11') }
+)
+
+$ChosenExe = $null
+$ChosenArgs = @()
+foreach ($c in $Candidates) {
+    $Exe = [string]$c.Exe
+    $PythonArgs = @($c.Args)
+    if ([string]::IsNullOrWhiteSpace($Exe)) { continue }
+
+    $LooksLikePath = $Exe.Contains('\\') -or $Exe.Contains('/')
+    if ($LooksLikePath) {
+        if (-not (Test-Path -LiteralPath $Exe -PathType Leaf)) { continue }
+    }
+    elseif (-not (Get-Command $Exe -ErrorAction SilentlyContinue)) {
+        continue
+    }
+
+    try {
+        & $Exe @PythonArgs -c 'import platform,struct,sys; raise SystemExit(0 if platform.python_implementation()=="CPython" and (3,11) <= sys.version_info[:2] < (3,15) and struct.calcsize("P") * 8 == 64 else 1)' 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $ChosenExe = $Exe
+            $ChosenArgs = $PythonArgs
+            break
+        }
+    }
+    catch {}
+}
+if (-not $ChosenExe) { throw '64-bit CPython 3.11-3.14 was not found.' }
+Ok ("Using " + $ChosenExe + " " + ($ChosenArgs -join ' '))
+$ChosenPythonVersion = (& $ChosenExe @ChosenArgs -c 'import platform; print(platform.python_version())').Trim()
 if (-not $ChosenPythonVersion) { throw 'Could not determine the selected CPython version.' }
 
 Step 'Verifying frozen source tree'
-& $Chosen.Exe @($Chosen.Args) tools\source_freeze.py --root .
+& $ChosenExe @ChosenArgs tools\source_freeze.py --root .
 if ($LASTEXITCODE -ne 0) { throw 'Source freeze verification failed. Regenerate SOURCE_FREEZE.json only after a complete source audit.' }
 Ok 'Frozen source tree verified'
 
@@ -65,7 +94,7 @@ New-Item -ItemType Directory -Force $BuildState | Out-Null
 
 function New-IsolatedVenv {
     if (Test-Path '.venv') { Remove-Item -Recurse -Force '.venv' }
-    & $Chosen.Exe @($Chosen.Args) -m venv .venv
+    & $ChosenExe @ChosenArgs -m venv .venv
     if ($LASTEXITCODE -ne 0) { throw 'Virtual environment creation failed.' }
     $Python = Join-Path $Root '.venv\Scripts\python.exe'
     & $Python -c 'import platform,struct,sys; raise SystemExit(0 if platform.python_implementation()=="CPython" and (3,11) <= sys.version_info[:2] < (3,15) and struct.calcsize("P") * 8 == 64 else 1)'
