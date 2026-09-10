@@ -98,8 +98,8 @@
       "size": 1844
     },
     "tests/test_diagnostics.py": {
-      "sha256": "ac4a4935f68d23386f7544b2879f52f3290a489606a0a50bb390452f8b54c464",
-      "size": 16164
+      "sha256": "4eb1f5f962fa68d0927d1e3fec6cf2134554164519887cd8f87a293ba8b63c20",
+      "size": 16804
     },
     "tests/test_flow.py": {
       "sha256": "dabf02dc8b25623e14fd093846f576ed03d3b4e3b57fd54914e872b0e8b3e9e2",
@@ -110,8 +110,8 @@
       "size": 1848
     },
     "tests/test_licenses.py": {
-      "sha256": "a93b80db3db6fb966be6501085fe8cbb9bd21a3b672338b1316c970cb2176ae5",
-      "size": 6133
+      "sha256": "91bef69c29feb7533fa03bdf1c4d8856e41df0d1bd23b08755bddfe8f5a56453",
+      "size": 6206
     },
     "tests/test_main.py": {
       "sha256": "f956e6bbc50cda3118955b0387b513465d6f988520fbe2d627a9c7caa2883681",
@@ -130,8 +130,8 @@
       "size": 3607
     },
     "tests/test_release_tools.py": {
-      "sha256": "311eddc74c6579dc09696074caa98911cb6e3241d74c303d5f4eb016e93a1b38",
-      "size": 33850
+      "sha256": "1b5dca94ee09b32dd6e7a624c2373dd9d595c028bc45dc014351c98e18b78858",
+      "size": 34771
     },
     "tests/test_runtime.py": {
       "sha256": "0edbff6d39579ac69f0b506765bb43d6be692c0da9de18c93fcb907923a7114e",
@@ -146,8 +146,8 @@
       "size": 2719
     },
     "tests/test_storage.py": {
-      "sha256": "eb5980fef3b1122762ca95ed307177a8f9df859568aa75160c52f8ce0b036122",
-      "size": 55138
+      "sha256": "55a3bf540b6dc81b0337b8906852b087c93bbe15bdec21b1216c5fb7e71a2863",
+      "size": 55609
     },
     "tests/test_support.py": {
       "sha256": "00c620ff90293b8386f23bf81de7e7a0f03441e677e44e7969d2c0280ce39fa6",
@@ -318,13 +318,13 @@
       "size": 33698
     }
   },
-  "freeze_utc": "2026-09-10T14:28:30.513414Z",
+  "freeze_utc": "2026-09-10T14:43:13.830345Z",
   "product": "Ultra Stalker Desktop",
   "reference": "Ultra Stalker 8.4.1",
   "reference_artifact": "UltraStalker_V7_UPDATE.ipk",
   "reference_artifact_sha256": "d845f917a3a1507c454a7848dd12714ffe720bf568966e0196c06f14f2131876",
   "reference_parity": "behavioral-reference; original 8.4.1 source bytes unavailable",
-  "source_tree_sha256": "b365fdfd56d17cd40503cb5280a5d59aab3e45e463fe9553402b9e374bdda82e",
+  "source_tree_sha256": "fbbeea999cb74c73b6989a3bcaf905cad716a82d42168c16f61668ba9380dd05",
   "status": "source-frozen release candidate",
   "validation": {
     "clean_room": "PASS",
