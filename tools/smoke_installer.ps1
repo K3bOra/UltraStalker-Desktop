@@ -235,7 +235,7 @@ $SmokeRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("UltraStalker-Smoke-$S
 $ProductionAppId = '{8B1EF58E-7E5F-4D2F-9BC5-7A5D0C1E2026}'
 $UninstallRoot = 'Software\Microsoft\Windows\CurrentVersion\Uninstall'
 $ProductionUninstallKey = $UninstallRoot + '\' + ($ProductionAppId + '_is1')
-$SmokeAppId = $ProductionAppId + '-smoke-' + $SmokeId
+$SmokeAppId = 'UltraStalkerDesktop-smoke-' + $SmokeId
 $SmokeUninstallKey = $UninstallRoot + '\' + ($SmokeAppId + '_is1')
 $ProductionRegistryBefore = Registry-Snapshot $ProductionUninstallKey
 $SmokeRegistryIsolated = $false
@@ -287,7 +287,7 @@ try {
         Fail 'Smoke installer used the production uninstall registry identity.'
     }
     if ([string]$SmokeRegistryEntry.Name -notlike ('*' + $SmokeId + '*')) {
-        Fail 'Smoke uninstall registry entry is not bound to the random smoke AppId.'
+        Fail ("Smoke uninstall registry entry is not bound to the random smoke AppId. Found registry key: $([string]$SmokeRegistryEntry.Name)")
     }
     if ((Registry-Snapshot $ProductionUninstallKey) -ne $ProductionRegistryBefore) {
         Fail 'Smoke installation modified the production uninstall registry entry.'
