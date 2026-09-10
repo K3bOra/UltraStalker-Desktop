@@ -9,7 +9,7 @@ from ultrastalker_desktop.core.adapters import make_adapter
 from ultrastalker_desktop.storage.profiles import save_profile,load_profiles,delete_profile
 from ultrastalker_desktop.storage.database import toggle_favorite,favorites,add_history,update_progress,history,resume_point,next_episode,episode_tracking_key,history_progress_label
 from ultrastalker_desktop.storage.settings import load_settings,save_settings
-from ultrastalker_desktop.player.mpv_backend import MPVBackend
+from ultrastalker_desktop.player.vlc_backend import VLCBackend
 from ultrastalker_desktop.support_bundle import create_support_bundle,sanitize_text
 from ultrastalker_desktop.core.tmdb import TMDbClient
 from ultrastalker_desktop.core.artwork import ArtworkCache
@@ -102,7 +102,7 @@ class Worker(QThread):
 
 class UltraStalkerWindow(QMainWindow):
     def __init__(self):
-        super().__init__();self.setWindowTitle('Ultra Stalker Desktop '+__version__);self.resize(1440,860);self.setMinimumSize(1120,680);self.adapter=None;self.profile=None;self.source_key='';self.player=MPVBackend();self.current_kind='';self.current_items=[];self.current_playing=None;self.workers=[];self.browser_history=[];self.request_generation=0;self.play_request_generation=0;self.connection_generation=0;self.volume=100;self.volume_generation=0;self.closing=False;self.progress_poll_active=False;self.last_progress=(0.0,0.0)
+        super().__init__();self.setWindowTitle('Ultra Stalker Desktop '+__version__);self.resize(1440,860);self.setMinimumSize(1120,680);self.adapter=None;self.profile=None;self.source_key='';self.player=VLCBackend();self.current_kind='';self.current_items=[];self.current_playing=None;self.workers=[];self.browser_history=[];self.request_generation=0;self.play_request_generation=0;self.connection_generation=0;self.volume=100;self.volume_generation=0;self.closing=False;self.progress_poll_active=False;self.last_progress=(0.0,0.0)
         self.setStyleSheet(ULTRASTALKER_QSS)
         self.settings=load_settings();self.tmdb=TMDbClient(self.settings.get('tmdb_api_key',''));self.artwork=ArtworkCache();self.artwork_generation=0
         self.stack=QStackedWidget();self.setCentralWidget(self.stack);self.login=self._login();self.home=self._home();self.browser=self._browser();[self.stack.addWidget(x) for x in (self.login,self.home,self.browser)]
