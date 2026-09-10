@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 from tools.finalize_release import finalize_release
 from tools.release_fingerprint import generate_fingerprint
 from tools.release_gate import dist_gate
+from tools.path_safety import walk_payload as real_walk_payload
 MPV_ARCHIVE_SHA = '4e197f729f5071c6772f35fffd96e0f36e3e8a044bd9479b136bb09b7c6a80ff'
 RELEASE_DEPS = 'PySide6==6.11.2\nrequests==2.34.2\nkeyring==25.7.0\npywin32-ctypes==0.2.3\npyinstaller==6.22.2\npackaging==26.3\n'
 
@@ -56,7 +58,7 @@ def run_dist_gate(dist: Path) -> tuple[bool, str]:
     output = io.StringIO()
     try:
         with contextlib.redirect_stdout(output):
-            dist_gate(dist)
+            dist_gate(dist.resolve())
         return True, output.getvalue()
     except SystemExit:
         return False, output.getvalue()
@@ -194,19 +196,34 @@ class ReleaseToolTests(unittest.TestCase):
     def test_fingerprint_rejects_windows_case_insensitive_path_collision(self):
         with tempfile.TemporaryDirectory() as td:
             dist = Path(td) / 'dist'; dist.mkdir()
-            (dist / 'Plugin.dll').write_bytes(b'one')
-            (dist / 'plugin.dll').write_bytes(b'two')
-            with self.assertRaises(SystemExit) as cm:
-                generate_fingerprint(dist)
+            resolved = dist.resolve()
+            upper = resolved / 'Plugin.dll'
+            lower = resolved / 'plugin.dll'
+            upper.write_bytes(b'one')
+            if not lower.exists():
+                lower.write_bytes(b'two')
+            # A real Windows filesystem cannot hold both names at once, so feed
+            # the validator both lexical paths directly and verify its Windows
+            # case-folding rule on every host.
+            with patch('tools.release_fingerprint.walk_payload', return_value=[upper, lower]):
+                with self.assertRaises(SystemExit) as cm:
+                    generate_fingerprint(dist)
             self.assertIn('case-insensitive payload path collision', str(cm.exception).lower())
 
     def test_finalizer_rejects_case_collision_added_after_fingerprint(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td); dist, installer = self._fixture(root, True)
-            (dist / 'Late.dll').write_bytes(b'one')
-            (dist / 'late.dll').write_bytes(b'two')
-            with self.assertRaises(SystemExit) as cm:
-                finalize_release(dist, installer)
+            resolved = dist.resolve()
+            upper = resolved / 'Late.dll'
+            lower = resolved / 'late.dll'
+            upper.write_bytes(b'one')
+            if not lower.exists():
+                lower.write_bytes(b'two')
+            paths = [p for p in real_walk_payload(resolved) if p.name.casefold() != 'late.dll']
+            paths.extend([upper, lower])
+            with patch('tools.finalize_release.walk_payload', return_value=paths):
+                with self.assertRaises(SystemExit) as cm:
+                    finalize_release(dist, installer)
             self.assertIn('case-insensitive payload path collision', str(cm.exception).lower())
 
     def test_fingerprint_refuses_transient_build_self_test_marker(self):
@@ -294,7 +311,7 @@ class ReleaseToolTests(unittest.TestCase):
             root = Path(td); dist, installer = self._fixture(root, True)
             provenance = json.loads((dist / 'provenance.json').read_text(encoding='utf-8'))
             output = finalize_release(dist, installer)
-            self.assertEqual(output, installer.parent / 'FINAL_RELEASE.json')
+            self.assertEqual(output, (installer.parent / 'FINAL_RELEASE.json').resolve())
             manifest = json.loads(output.read_text(encoding='utf-8'))
             self.assertEqual(manifest['build_id'], provenance['build_id'])
             self.assertTrue(manifest['self_test_passed'])
