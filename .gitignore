@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+
+# Build outputs
+build/
+dist/
+release/
+*.spec.bak
+
+# Downloaded third-party runtime (fetched + verified by build pipeline)
+vendor/mpv/
+
+# Local runtime/test data
+*.log
+.DS_Store
+Thumbs.db
+.buildstate/
