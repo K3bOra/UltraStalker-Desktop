@@ -30,9 +30,18 @@ function Read-Json([string]$Path) {
     return Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json
 }
 
+function Registry-Locations() {
+    return @(
+        [pscustomobject]@{ Hive = [Microsoft.Win32.RegistryHive]::CurrentUser;  HiveName = 'HKCU'; View = [Microsoft.Win32.RegistryView]::Registry64; ViewName = 'Registry64' },
+        [pscustomobject]@{ Hive = [Microsoft.Win32.RegistryHive]::CurrentUser;  HiveName = 'HKCU'; View = [Microsoft.Win32.RegistryView]::Registry32; ViewName = 'Registry32' },
+        [pscustomobject]@{ Hive = [Microsoft.Win32.RegistryHive]::LocalMachine; HiveName = 'HKLM'; View = [Microsoft.Win32.RegistryView]::Registry64; ViewName = 'Registry64' },
+        [pscustomobject]@{ Hive = [Microsoft.Win32.RegistryHive]::LocalMachine; HiveName = 'HKLM'; View = [Microsoft.Win32.RegistryView]::Registry32; ViewName = 'Registry32' }
+    )
+}
+
 function Registry-KeyExists([string]$SubKey) {
-    foreach ($View in @([Microsoft.Win32.RegistryView]::Registry64, [Microsoft.Win32.RegistryView]::Registry32)) {
-        $Base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $View)
+    foreach ($Location in @(Registry-Locations)) {
+        $Base = [Microsoft.Win32.RegistryKey]::OpenBaseKey($Location.Hive, $Location.View)
         try {
             $Key = $Base.OpenSubKey($SubKey, $false)
             if ($null -ne $Key) {
@@ -49,13 +58,13 @@ function Registry-KeyExists([string]$SubKey) {
 
 function Registry-Snapshot([string]$SubKey) {
     $Snapshot = [ordered]@{}
-    foreach ($View in @([Microsoft.Win32.RegistryView]::Registry64, [Microsoft.Win32.RegistryView]::Registry32)) {
-        $ViewName = [string]$View
-        $Base = [Microsoft.Win32.RegistryKey]::OpenBaseKey([Microsoft.Win32.RegistryHive]::CurrentUser, $View)
+    foreach ($Location in @(Registry-Locations)) {
+        $Slot = $Location.HiveName + '-' + $Location.ViewName
+        $Base = [Microsoft.Win32.RegistryKey]::OpenBaseKey($Location.Hive, $Location.View)
         try {
             $Key = $Base.OpenSubKey($SubKey, $false)
             if ($null -eq $Key) {
-                $Snapshot[$ViewName] = '<missing>'
+                $Snapshot[$Slot] = '<missing>'
                 continue
             }
             try {
@@ -69,7 +78,7 @@ function Registry-Snapshot([string]$SubKey) {
                         $Values[$ValueName] = $Value
                     }
                 }
-                $Snapshot[$ViewName] = $Values
+                $Snapshot[$Slot] = $Values
             }
             finally {
                 $Key.Close()
@@ -80,6 +89,86 @@ function Registry-Snapshot([string]$SubKey) {
         }
     }
     return ($Snapshot | ConvertTo-Json -Compress -Depth 8)
+}
+
+function Normalize-InstallPath([string]$PathValue) {
+    if ([string]::IsNullOrWhiteSpace($PathValue)) { return '' }
+    $Candidate = [Environment]::ExpandEnvironmentVariables($PathValue.Trim().Trim('"'))
+    try {
+        return ([System.IO.Path]::GetFullPath($Candidate)).TrimEnd('\\')
+    }
+    catch {
+        return $Candidate.TrimEnd('\\')
+    }
+}
+
+function Find-SmokeUninstallEntry([string]$ExpectedSubKey, [string]$ExpectedInstallDir, [string]$SmokeToken) {
+    $ExpectedInstallDir = Normalize-InstallPath $ExpectedInstallDir
+    $UninstallBase = 'Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall'
+    $ExpectedName = Split-Path -Leaf ($ExpectedSubKey -replace '\\', '/')
+
+    foreach ($Location in @(Registry-Locations)) {
+        $Base = [Microsoft.Win32.RegistryKey]::OpenBaseKey($Location.Hive, $Location.View)
+        try {
+            $RootKey = $Base.OpenSubKey($UninstallBase, $false)
+            if ($null -eq $RootKey) { continue }
+            try {
+                foreach ($SubKeyName in @($RootKey.GetSubKeyNames())) {
+                    $Entry = $RootKey.OpenSubKey($SubKeyName, $false)
+                    if ($null -eq $Entry) { continue }
+                    try {
+                        $AppPath = Normalize-InstallPath ([string]$Entry.GetValue('Inno Setup: App Path', ''))
+                        $InstallLocation = Normalize-InstallPath ([string]$Entry.GetValue('InstallLocation', ''))
+                        $NameMatches = ($SubKeyName -eq $ExpectedName) -or ($SubKeyName.IndexOf($SmokeToken, [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
+                        $PathMatches = (($AppPath -ne '') -and ($AppPath -eq $ExpectedInstallDir)) -or (($InstallLocation -ne '') -and ($InstallLocation -eq $ExpectedInstallDir))
+                        if ($NameMatches -or $PathMatches) {
+                            return [pscustomobject]@{
+                                Hive = $Location.Hive
+                                HiveName = $Location.HiveName
+                                View = $Location.View
+                                ViewName = $Location.ViewName
+                                SubKey = $UninstallBase + '\\' + $SubKeyName
+                                Name = $SubKeyName
+                            }
+                        }
+                    }
+                    finally {
+                        $Entry.Close()
+                    }
+                }
+            }
+            finally {
+                $RootKey.Close()
+            }
+        }
+        finally {
+            $Base.Close()
+        }
+    }
+    return $null
+}
+
+function Wait-SmokeUninstallEntry([string]$ExpectedSubKey, [string]$ExpectedInstallDir, [string]$SmokeToken) {
+    for ($Attempt = 0; $Attempt -lt 50; $Attempt++) {
+        $Found = Find-SmokeUninstallEntry $ExpectedSubKey $ExpectedInstallDir $SmokeToken
+        if ($null -ne $Found) { return $Found }
+        Start-Sleep -Milliseconds 100
+    }
+    return $null
+}
+
+function Registry-EntryExists($Entry) {
+    if ($null -eq $Entry) { return $false }
+    $Base = [Microsoft.Win32.RegistryKey]::OpenBaseKey($Entry.Hive, $Entry.View)
+    try {
+        $Key = $Base.OpenSubKey([string]$Entry.SubKey, $false)
+        if ($null -eq $Key) { return $false }
+        $Key.Close()
+        return $true
+    }
+    finally {
+        $Base.Close()
+    }
 }
 
 function Assert-InstalledPayload([string]$Root, $Provenance) {
@@ -190,8 +279,15 @@ try {
     if ($InstallExitCode -ne 0) { Fail "Silent installer exited with code $InstallExitCode" }
 
 
-    if (-not (Registry-KeyExists $SmokeUninstallKey)) {
-        Fail 'Smoke installer did not create its isolated uninstall registry key.'
+    $SmokeRegistryEntry = Wait-SmokeUninstallEntry $SmokeUninstallKey $InstallDir $SmokeId
+    if ($null -eq $SmokeRegistryEntry) {
+        Fail 'Smoke installer did not create a discoverable isolated uninstall registry entry.'
+    }
+    if ([string]$SmokeRegistryEntry.Name -eq ($ProductionAppId + '_is1')) {
+        Fail 'Smoke installer used the production uninstall registry identity.'
+    }
+    if ([string]$SmokeRegistryEntry.Name -notlike ('*' + $SmokeId + '*')) {
+        Fail 'Smoke uninstall registry entry is not bound to the random smoke AppId.'
     }
     if ((Registry-Snapshot $ProductionUninstallKey) -ne $ProductionRegistryBefore) {
         Fail 'Smoke installation modified the production uninstall registry entry.'
@@ -266,8 +362,14 @@ try {
     if ($UpgradeExitCode -ne 0) { Fail "Silent upgrade installer exited with code $UpgradeExitCode" }
 
 
-    if (-not (Registry-KeyExists $SmokeUninstallKey)) {
-        Fail 'Upgrade lost the isolated smoke uninstall registry key.'
+    $SmokeRegistryEntryAfterUpgrade = Wait-SmokeUninstallEntry $SmokeUninstallKey $InstallDir $SmokeId
+    if ($null -eq $SmokeRegistryEntryAfterUpgrade) {
+        Fail 'Upgrade lost the isolated smoke uninstall registry entry.'
+    }
+    if (([string]$SmokeRegistryEntryAfterUpgrade.Name -ne [string]$SmokeRegistryEntry.Name) -or
+        ([string]$SmokeRegistryEntryAfterUpgrade.HiveName -ne [string]$SmokeRegistryEntry.HiveName) -or
+        ([string]$SmokeRegistryEntryAfterUpgrade.ViewName -ne [string]$SmokeRegistryEntry.ViewName)) {
+        Fail 'Upgrade changed the isolated smoke uninstall registry identity.'
     }
     if ((Registry-Snapshot $ProductionUninstallKey) -ne $ProductionRegistryBefore) {
         Fail 'Smoke upgrade modified the production uninstall registry entry.'
@@ -312,8 +414,11 @@ try {
     $UninstallPassed = $true
 
 
-    if (Registry-KeyExists $SmokeUninstallKey) {
-        Fail 'Smoke uninstall registry key remains after uninstall.'
+    for ($i = 0; $i -lt 50 -and (Registry-EntryExists $SmokeRegistryEntry); $i++) {
+        Start-Sleep -Milliseconds 100
+    }
+    if (Registry-EntryExists $SmokeRegistryEntry) {
+        Fail 'Smoke uninstall registry entry remains after uninstall.'
     }
     $SmokeRegistryRemoved = $true
     if ((Registry-Snapshot $ProductionUninstallKey) -ne $ProductionRegistryBefore) {
