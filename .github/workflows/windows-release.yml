@@ -37,7 +37,10 @@ jobs:
 
       - name: Build and smoke-test Windows release
         shell: cmd
-        run: call build_windows.bat
+        run: |
+          for /f "delims=" %%I in ('python -c "import sys; print(sys.executable)"') do set "ULTRASTALKER_PYTHON_EXE=%%I"
+          if not defined ULTRASTALKER_PYTHON_EXE exit /b 1
+          call build_windows.bat "%ULTRASTALKER_PYTHON_EXE%"
 
       - name: Verify final release bundle
         shell: cmd
