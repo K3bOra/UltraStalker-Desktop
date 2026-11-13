@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ultra Stalker</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="stage" aria-hidden="true">
+  <div class="bd" id="bd-a"></div>
+  <div class="bd" id="bd-b"></div>
+  <div class="scrim"></div>
+</div>
+
+<nav id="rail" aria-label="Sections">
+  <a class="brand" href="#/home" title="Ultra Stalker">
+    <svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#35d39b"/><stop offset="1" stop-color="#e0464f"/></linearGradient></defs><rect x="3" y="3" width="42" height="42" rx="13" fill="none" stroke="url(#lg)" stroke-width="3"/><path d="M17 15v12a7 7 0 0 0 14 0V15" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><circle cx="24" cy="36.5" r="2.3" fill="#35d39b"/></svg>
+  </a>
+  <div class="rail-items">
+    <a href="#/home" data-nav="home"><i class="ic ic-home"></i><span data-t="home"></span></a>
+    <a href="#/live" data-nav="live"><i class="ic ic-live"></i><span data-t="live"></span></a>
+    <a href="#/movies" data-nav="movies"><i class="ic ic-movies"></i><span data-t="movies"></span></a>
+    <a href="#/series" data-nav="series"><i class="ic ic-series"></i><span data-t="series"></span></a>
+    <a href="#/search" data-nav="search"><i class="ic ic-search"></i><span data-t="search"></span></a>
+    <a href="#/favorites" data-nav="favorites"><i class="ic ic-star"></i><span data-t="favorites"></span></a>
+  </div>
+  <div class="rail-foot">
+    <a href="#/sources" data-nav="sources"><i class="ic ic-sources"></i><span data-t="sources"></span></a>
+    <a href="#/settings" data-nav="settings"><i class="ic ic-settings"></i><span data-t="settings"></span></a>
+  </div>
+</nav>
+
+<main id="view" tabindex="-1"></main>
+
+<footer id="bar">
+  <div class="bar-ctx" id="bar-ctx"></div>
+  <div class="bar-keys" id="bar-keys"></div>
+  <div class="bar-count" id="bar-count"></div>
+</footer>
+
+<div id="drawer" class="drawer" hidden></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

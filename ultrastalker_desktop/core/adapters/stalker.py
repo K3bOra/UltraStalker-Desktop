@@ -431,6 +431,20 @@ class StalkerAdapter(SourceAdapter):
             raise last_error
         return []
 
+    def short_epg(self, item, cancelled=None):
+        if cancelled and cancelled(): return []
+        if (item.kind or '').lower()!='live': return []
+        self._ensure()
+        ch=str((item.raw or {}).get('id') or item.id or '')
+        if not ch: return []
+        js=self._get({'type':'itv','action':'get_short_epg','ch_id':ch,'size':'4','JsHttpRequest':'1-xml'})
+        out=[]
+        for x in self._extract_rows(js):
+            if not isinstance(x,dict): continue
+            row=self._epg_row(x.get('name') or x.get('title'),x.get('start_timestamp'),x.get('stop_timestamp'),x.get('descr') or x.get('description'))
+            if row: out.append(row)
+        return out[:6]
+
     def _rehydrate_playable(self, item, cancelled=None):
         """Recover a fresh provider command for persisted/cache snapshots."""
         if cancelled and cancelled():

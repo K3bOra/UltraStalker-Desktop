@@ -64,6 +64,26 @@ class XtreamAdapter(SourceAdapter):
             backdrop=self._artwork_value(x.get('backdrop_path') or x.get('backdrop') or x.get('background'))
             out.append(MediaItem(mid,title,kind,str(category_id),poster=self._artwork_value(x.get('stream_icon') or x.get('cover')),description=str(x.get('plot') or ''),year=str(x.get('year') or ''),rating=str(x.get('rating') or ''),series_id=str(x.get('series_id') or ''),raw=x,backdrop=backdrop))
         return out
+    @staticmethod
+    def _b64(value):
+        import base64,binascii
+        text=str(value or '')
+        try:
+            decoded=base64.b64decode(text,validate=True).decode('utf-8')
+            return decoded if decoded.strip() else text
+        except (binascii.Error,ValueError,UnicodeDecodeError):
+            return text
+    def short_epg(self,item,cancelled=None):
+        if cancelled and cancelled():return []
+        if (item.kind or '').lower()!='live':return []
+        js=self._api('get_short_epg',stream_id=item.id,limit=4)
+        rows=js.get('epg_listings') if isinstance(js,dict) else []
+        out=[]
+        for x in rows if isinstance(rows,list) else []:
+            if not isinstance(x,dict):continue
+            row=self._epg_row(self._b64(x.get('title')),x.get('start_timestamp'),x.get('stop_timestamp'),self._b64(x.get('description')))
+            if row:out.append(row)
+        return out[:6]
     def series_episodes(self,item,cancelled=None):
         if cancelled and cancelled():return []
         data=self._api('get_series_info',series_id=item.series_id or item.id); out=[]

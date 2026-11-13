@@ -202,6 +202,10 @@ class CachedAdapter(SourceAdapter):
             180,
         )
 
+    def short_epg(self, item, cancelled=None):
+        fn = getattr(self.inner, 'short_epg', None)
+        return fn(item, cancelled=cancelled) if fn else []
+
     def resolve_stream(self, item, cancelled=None):
         return self.inner.resolve_stream(item, cancelled=cancelled)
 

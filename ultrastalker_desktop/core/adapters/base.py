@@ -19,6 +19,21 @@ class SourceAdapter(ABC):
     def series_episodes(self, item: MediaItem, cancelled=None) -> list[MediaItem]:
         return []
 
+    def short_epg(self, item: MediaItem, cancelled=None) -> list[dict]:
+        """Now/next programme rows: [{title, start, end, description}] (epoch seconds)."""
+        return []
+
+    @staticmethod
+    def _epg_row(title, start, end, description='') -> dict | None:
+        try:
+            start = int(float(start or 0)); end = int(float(end or 0))
+        except (TypeError, ValueError):
+            return None
+        title = str(title or '').strip()
+        if not title or start <= 0 or end <= start:
+            return None
+        return {'title': title[:200], 'start': start, 'end': end, 'description': str(description or '').strip()[:600]}
+
     @abstractmethod
     def resolve_stream(self, item: MediaItem, cancelled=None) -> str: ...
 
