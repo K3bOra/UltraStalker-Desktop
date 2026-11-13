@@ -220,6 +220,32 @@ class StalkerAdapter(SourceAdapter):
             raise first_error
         return out
 
+    def art_urls(self, value) -> list[str]:
+        """Absolute artwork candidates for a portal-relative logo/poster value."""
+        v=str(value or '').strip()
+        if not v or v.casefold() in ('0','null','none'): return []
+        if v.startswith('//'): return ['https:'+v]
+        if v.lower().startswith(('http://','https://')): return [v]
+        parts=urllib.parse.urlsplit(self.base)
+        origin=f'{parts.scheme}://{parts.netloc}'
+        roots=[self.base.rstrip('/')]
+        if not self.base.rstrip('/').lower().endswith('/stalker_portal'):
+            roots.append(origin+'/stalker_portal')
+        out=[]
+        clean=v.lstrip('/')
+        if '/' not in clean and re.search(r'\.(?:png|jpe?g|webp|gif)$',clean,re.I):
+            for root in roots:
+                out.append(root+'/misc/logos/320/'+clean)
+        elif v.startswith('/'):
+            out.append(origin+v)
+        else:
+            for root in roots:
+                out.append(root+'/'+clean)
+        seen=[]
+        for u in out:
+            if u not in seen: seen.append(u)
+        return seen[:3]
+
     def items(self, kind, category_id='', cancelled=None):
         if cancelled and cancelled(): return []
         self._ensure(); kind=kind.lower(); typ={'live':'itv','movies':'vod','series':'series'}.get(kind,kind)
@@ -284,7 +310,9 @@ class StalkerAdapter(SourceAdapter):
             if not title: continue
             mid=str(x.get('id') or x.get('ch_id') or x.get('movie_id') or x.get('series_id') or title)
             cmd=str(x.get('cmd') or x.get('url') or '')
-            poster=str(x.get('screenshot_uri') or x.get('poster') or x.get('logo') or '')
+            art=self.art_urls(x.get('screenshot_uri') or x.get('poster') or x.get('logo') or x.get('cover') or '')
+            poster=art[0] if art else ''
+            if len(art)>1: x=dict(x,_poster_alts=art[1:])
             out.append(MediaItem(mid,title,kind,str(category_id),cmd if cmd.startswith(('http://','https://')) else '',cmd,poster,str(x.get('description') or x.get('descr') or ''),str(x.get('year') or ''),str(x.get('rating') or ''),str((x.get('series_id') or mid) if kind=='series' else ''),raw=x))
         return out
 

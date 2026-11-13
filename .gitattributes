@@ -10,3 +10,5 @@
 *.ipk binary
 *.exe binary
 *.dll binary
+*.woff2 binary
+*.ttf binary

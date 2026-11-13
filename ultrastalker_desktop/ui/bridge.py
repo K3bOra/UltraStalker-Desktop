@@ -168,6 +168,9 @@ class Bridge(QObject):
             "rating": self._rating(item.rating),
             "description": (item.description or "")[:900],
         }
+        alts = [u for u in (raw.get("_poster_alts") or []) if isinstance(u, str) and u.startswith(("http://", "https://"))]
+        if alts and out["poster"]:
+            out["poster_alt"] = alts[0]
         if item.season is not None:
             out["season"] = item.season
         if item.episode is not None:

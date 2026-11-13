@@ -2,8 +2,8 @@
   "developer": "Ahmed L-HadarY",
   "files": {
     ".gitattributes": {
-      "sha256": "7d14586d1dfb79f7425cefc6a7b9567282e77e3048cb5ae83c4dd99d632ff30e",
-      "size": 238
+      "sha256": "77d7d791fff00011806364adc57cee7fdecfaca58b1cbb85a2844c4a813699ce",
+      "size": 266
     },
     ".github/workflows/windows-release.yml": {
       "sha256": "5139b1a1f7269731a2b3de68a6cc6220b78eedc701546a29cde1d455bc746a11",
@@ -238,8 +238,8 @@
       "size": 14167
     },
     "ultrastalker_desktop/core/adapters/stalker.py": {
-      "sha256": "600e88e8faf2087927c1d53afb4a98d6c828d9741e14db4578371dff094196e4",
-      "size": 24368
+      "sha256": "22ff77d9f95dc55f6994e9591ced0f22abfab1bf401f3ea8251a7d717574b3b6",
+      "size": 25577
     },
     "ultrastalker_desktop/core/adapters/xtream.py": {
       "sha256": "7319fc46c920e80f4a9ca356ccf679fb4d4847cc057aa58a93b6e7bf42ce95b9",
@@ -250,8 +250,8 @@
       "size": 6989
     },
     "ultrastalker_desktop/core/builtin_credentials.py": {
-      "sha256": "2cad476fdef02ad507867743af447238d8804bc1e15037399e46c49b5f608103",
-      "size": 1676
+      "sha256": "0ba930be3cf89a3aeb23801f5b231ce205680f1439028d6cd805eed5f5031de6",
+      "size": 1629
     },
     "ultrastalker_desktop/core/http.py": {
       "sha256": "9cd216e3074f99692a36f21a5df1768a6052301421bccac3ba6a8a2b8d88a4d5",
@@ -330,8 +330,8 @@
       "size": 40773
     },
     "ultrastalker_desktop/ui/app/app.js": {
-      "sha256": "6f168a691c69d04738c5b8d96b7411c356b1690be27e1ee3231cf3d0de667015",
-      "size": 59009
+      "sha256": "b2f786a777bb7f3a93738b392d9e14feffe1a43dd4d4f40354c27bc8ebbd86e9",
+      "size": 59084
     },
     "ultrastalker_desktop/ui/app/fonts/OFL-Cairo.txt": {
       "sha256": "aa2b13bf0770c59a7fb7a3b793a7df5162c9cb5ad540ec81b0c0c1385946845d",
@@ -358,8 +358,8 @@
       "size": 9906
     },
     "ultrastalker_desktop/ui/bridge.py": {
-      "sha256": "ade4a2cdc9e428012ffdcc2fc5741cee701fdc4bd432edc4632311d2bd36f3ec",
-      "size": 22514
+      "sha256": "dc8d916d86e4964ab58f3d6068d997a3633beed20c11037a6d1d6243f36fd288",
+      "size": 22713
     },
     "ultrastalker_desktop/ui/main_window.py": {
       "sha256": "b6c4c986809fdfb9a9aa19f4c640af94061d8dbbb630f8dc31aa0712638ee472",
@@ -374,13 +374,13 @@
       "size": 9551
     }
   },
-  "freeze_utc": "2026-11-13T19:50:10.752793Z",
+  "freeze_utc": "2026-11-13T22:26:13.868265Z",
   "product": "Ultra Stalker Desktop",
   "reference": "Ultra Stalker 8.4.1",
   "reference_artifact": "UltraStalker_V7_UPDATE.ipk",
   "reference_artifact_sha256": "d845f917a3a1507c454a7848dd12714ffe720bf568966e0196c06f14f2131876",
   "reference_parity": "behavioral-reference; original 8.4.1 source bytes unavailable",
-  "source_tree_sha256": "14478e016d35890775d29c7511ddc19f0dadb956be5b196a85cb7dd40ab13d45",
+  "source_tree_sha256": "e0e99a0da5c80217f6f68abf62338e0dab8ea0b7dca46714c4e03b232e005649",
   "status": "source-frozen release candidate",
   "validation": {
     "clean_room": "PASS",

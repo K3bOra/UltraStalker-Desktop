@@ -67,6 +67,8 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const h = (html) => { const d = document.createElement("template"); d.innerHTML = html.trim(); return d.content.firstElementChild; };
 const debounce = (fn, ms) => { let id; return (...a) => { clearTimeout(id); id = setTimeout(() => fn(...a), ms); }; };
+const imgTag = (x, extra = "") => x.poster ? `<img src="${esc(x.poster)}" ${x.poster_alt ? `data-alt="${esc(x.poster_alt)}"` : ""} alt="" loading="lazy" ${extra} onerror="imgFail(this)">` : "";
+window.imgFail = (el) => { const alt = el.dataset.alt; if (alt) { el.removeAttribute("data-alt"); el.src = alt; } else el.remove(); };
 const initials = (s) => String(s || "?").replace(/^[A-Z0-9]{2,4}\s*[|:\-]\s*/, "").trim().slice(0, 28);
 const fmtTime = (sec) => new Date(sec * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
@@ -142,7 +144,7 @@ function applyLang() {
 function markRail(name) { $$("#rail a[data-nav]").forEach((a) => a.classList.toggle("on", a.dataset.nav === name)); }
 
 function posterHTML(x, opts = {}) {
-  const img = x.poster ? `<img src="${esc(x.poster)}" alt="" loading="lazy" onerror="this.remove()">` : "";
+  const img = imgTag(x);
   const prog = opts.percent ? `<div class="prog"><i style="width:${opts.percent}%"></i></div>` : "";
   return `<div class="poster" data-ref="${esc(x.ref)}" tabindex="-1">
     <div class="art"><div class="ph">${esc(initials(x.title))}</div>${img}
@@ -232,7 +234,7 @@ async function homeShelves() {
   const shelf = (title, html, link, wide) => `<section class="shelf"><h3>${title}${link ? `<a href="${link}">${t("seeAll")}</a>` : ""}</h3><div class="strip ${wide ? "wide" : ""}">${html}</div></section>`;
   let html = "";
   if (cont.length) html += shelf(t("continueW"), cont.map((x) => posterHTML(x, { percent: x.percent })).join(""));
-  if (live.length) html += shelf(t("recentLive"), live.map((x) => `<div class="row ch" data-ref="${esc(x.ref)}" data-play="1" style="min-width:250px"><span class="logo">${x.poster ? `<img src="${esc(x.poster)}" alt="" onerror="this.remove()">` : esc(initials(x.title).slice(0, 3))}</span><span class="t">${esc(x.title)}</span></div>`).join(""));
+  if (live.length) html += shelf(t("recentLive"), live.map((x) => `<div class="row ch" data-ref="${esc(x.ref)}" data-play="1" style="min-width:250px"><span class="logo">${x.poster ? imgTag(x) : esc(initials(x.title).slice(0, 3))}</span><span class="t">${esc(x.title)}</span></div>`).join(""));
   if (favs.length) html += shelf(t("favShelf"), favs.map((x) => posterHTML(x)).join(""), "#/favorites");
   box.innerHTML = html;
   box.addEventListener("click", (e) => {
@@ -449,7 +451,7 @@ const Live = {
   drawChannels() {
     const L = this.list(); $("#ch-count").textContent = L.length;
     $("#lch").innerHTML = L.length ? L.map((x, i) => `<div class="row ch ${x.ref === this.sel ? "on" : ""}" data-ref="${esc(x.ref)}"><span class="n">${esc(x.number || i + 1)}</span>
-      <span class="logo">${x.poster ? `<img src="${esc(x.poster)}" alt="" loading="lazy" onerror="this.remove()">` : esc(initials(x.title).slice(0, 3))}</span>
+      <span class="logo">${x.poster ? imgTag(x) : esc(initials(x.title).slice(0, 3))}</span>
       <span class="t">${esc(x.title)}</span>${x.epg ? `<span class="epg">EPG</span>` : ""}</div>`).join("") : `<div class="empty"><b>${t("emptyCat")}</b></div>`;
   },
   select(ref) {
@@ -590,7 +592,7 @@ views.search = (v, [q0]) => {
     const total = r.live.length + r.movies.length + r.series.length;
     if (!total) { res.innerHTML = `<div class="empty"><b>${t("noResults")}</b></div>`; return; }
     res.innerHTML = [
-      r.live.length ? `<section class="shelf"><h3>${t("live")} <span class="muted">${r.live.length}</span></h3><div class="res-live">${r.live.map((x) => `<div class="row ch" data-ref="${esc(x.ref)}"><span class="logo">${x.poster ? `<img src="${esc(x.poster)}" alt="" onerror="this.remove()">` : esc(initials(x.title).slice(0, 3))}</span><span class="t">${esc(x.title)}</span></div>`).join("")}</div></section>` : "",
+      r.live.length ? `<section class="shelf"><h3>${t("live")} <span class="muted">${r.live.length}</span></h3><div class="res-live">${r.live.map((x) => `<div class="row ch" data-ref="${esc(x.ref)}"><span class="logo">${x.poster ? imgTag(x) : esc(initials(x.title).slice(0, 3))}</span><span class="t">${esc(x.title)}</span></div>`).join("")}</div></section>` : "",
       r.movies.length ? `<section class="shelf" style="margin-top:22px"><h3>${t("movies")} <span class="muted">${r.movies.length}</span></h3><div class="res-grid">${r.movies.map((x) => posterHTML(x)).join("")}</div></section>` : "",
       r.series.length ? `<section class="shelf" style="margin-top:22px"><h3>${t("series")} <span class="muted">${r.series.length}</span></h3><div class="res-grid">${r.series.map((x) => posterHTML(x)).join("")}</div></section>` : "",
     ].join("");
