@@ -123,17 +123,30 @@ class MainSingleInstanceIntegrationTests(unittest.TestCase):
         )
         qtwidgets.QApplication = qapp_ctor
         qtwidgets.QMessageBox = messages
+        qtcore = types.ModuleType("PySide6.QtCore")
+        qtcore.QCoreApplication = MagicMock(name="QCoreApplication")
+        qtcore.Qt = types.SimpleNamespace(AA_ShareOpenGLContexts=1)
+        webengine = types.ModuleType("PySide6.QtWebEngineWidgets")
         pyside = types.ModuleType("PySide6")
         pyside.QtWidgets = qtwidgets
+        pyside.QtCore = qtcore
+        pyside.QtWebEngineWidgets = webengine
 
         window_module = types.ModuleType("ultrastalker_desktop.ui.main_window")
         window = MagicMock(name="UltraStalkerWindowInstance")
         window_ctor = MagicMock(return_value=window)
         window_module.UltraStalkerWindow = window_ctor
+        # The cinematic shell is the default window; both share the same fake
+        # constructor so the lifecycle assertions cover whichever one starts.
+        shell_module = types.ModuleType("ultrastalker_desktop.ui.shell")
+        shell_module.ShellWindow = window_ctor
         return {
             "PySide6": pyside,
             "PySide6.QtWidgets": qtwidgets,
+            "PySide6.QtCore": qtcore,
+            "PySide6.QtWebEngineWidgets": webengine,
             "ultrastalker_desktop.ui.main_window": window_module,
+            "ultrastalker_desktop.ui.shell": shell_module,
         }, app, qapp_ctor, messages, window, window_ctor
 
     def test_duplicate_gui_instance_exits_before_logging_or_window_creation(self):

@@ -22,12 +22,12 @@
       "size": 3385
     },
     "THIRD_PARTY_NOTICES.txt": {
-      "sha256": "1a448002c721fd3f66b93b5fecb14d4af475a4f65cd5491d14367d022d1c5ba5",
-      "size": 2460
+      "sha256": "d3c69bd59fb0175e7fca6118ee4dea9ef64d437ed60175d0cf24e4a9a1821751",
+      "size": 2952
     },
     "UltraStalkerDesktop.spec": {
-      "sha256": "705c486148e5b95c11a38c1120921d7ca0d672e02d72d879e1097def844a0d1b",
-      "size": 1570
+      "sha256": "b5b1a4fcbfa7bb8383a09846e8547aaeb21b801c96aac320d21a92a7ad81d727",
+      "size": 2248
     },
     "WINDOWS_ACCEPTANCE.md": {
       "sha256": "6b38a9bc4c281cbc9f254491aa6155f70d21cc10175ba667dd62c2af09991687",
@@ -89,6 +89,10 @@
       "sha256": "9c419ba5a2086b57a0e588c2f90303e9129453475fb4d3281cc46590c604d910",
       "size": 6858
     },
+    "tests/test_bridge.py": {
+      "sha256": "d3560939a03600f43e04dbc7cc5f8fe451570414f2033d5c2a4901a2d192d658",
+      "size": 4402
+    },
     "tests/test_core.py": {
       "sha256": "75baf45e94a83666123d01ebf6fae90020304105e33c703a7df3e3fb5f5f7d4a",
       "size": 45612
@@ -114,8 +118,8 @@
       "size": 6206
     },
     "tests/test_main.py": {
-      "sha256": "f956e6bbc50cda3118955b0387b513465d6f988520fbe2d627a9c7caa2883681",
-      "size": 9682
+      "sha256": "e731f25327507ce4eb303f2400e625e3de6b93f72604ee65b61a2f2d4a014852",
+      "size": 10441
     },
     "tests/test_network_integration.py": {
       "sha256": "a7ea05a08c5c37f5abd90d665d4805e5db00f7ffdca61df57e4e3d53c811b4b1",
@@ -222,28 +226,32 @@
       "size": 617
     },
     "ultrastalker_desktop/core/adapters/base.py": {
-      "sha256": "d01152a0473334ca9d1e804303ebf70167e5ad769f54553004c180521dc821eb",
-      "size": 2405
+      "sha256": "0ef1733aa8a7ae084760f51c7a9e333b698829b0e330f5f3c24a69595abc90f1",
+      "size": 3058
     },
     "ultrastalker_desktop/core/adapters/cached.py": {
-      "sha256": "44f4097b917dd1ee209473b18cdc8f2669b3574643f18fdc3a3d9dd2e56e3372",
-      "size": 8090
+      "sha256": "66345f88f4ffb413dad575f298fc97503a06e6f0ce7cc04571e60bc5bdb768ad",
+      "size": 8249
     },
     "ultrastalker_desktop/core/adapters/m3u.py": {
       "sha256": "ebf5c886c92653d1310e845cfe98579a93f674c56158b3261ee420663bcc4f01",
       "size": 14167
     },
     "ultrastalker_desktop/core/adapters/stalker.py": {
-      "sha256": "6d9d772e4182ef54d459f980bb607ef5b3acc7f5f0fbd9238f377a9fac88804b",
-      "size": 23682
+      "sha256": "600e88e8faf2087927c1d53afb4a98d6c828d9741e14db4578371dff094196e4",
+      "size": 24368
     },
     "ultrastalker_desktop/core/adapters/xtream.py": {
-      "sha256": "455612f458f5f89f6658a187c264ba5a6a9c070298c6b6f25aff5cb532981f3f",
-      "size": 6656
+      "sha256": "7319fc46c920e80f4a9ca356ccf679fb4d4847cc057aa58a93b6e7bf42ce95b9",
+      "size": 7577
     },
     "ultrastalker_desktop/core/artwork.py": {
       "sha256": "1f0c01fd6355786ff274f816a6b3beeaac14626b91083cd7978d4f47e755708f",
       "size": 6989
+    },
+    "ultrastalker_desktop/core/builtin_credentials.py": {
+      "sha256": "2cad476fdef02ad507867743af447238d8804bc1e15037399e46c49b5f608103",
+      "size": 1676
     },
     "ultrastalker_desktop/core/http.py": {
       "sha256": "9cd216e3074f99692a36f21a5df1768a6052301421bccac3ba6a8a2b8d88a4d5",
@@ -254,16 +262,16 @@
       "size": 5051
     },
     "ultrastalker_desktop/core/tmdb.py": {
-      "sha256": "360d0b690616e62fb47471b98052f2f7193599342bad5c0f4a1fc4ee57854150",
-      "size": 2741
+      "sha256": "a1861fae2968a304c93e99bf47d6e272ae7b92219428adbb32d68cb2d485ce94",
+      "size": 9800
     },
     "ultrastalker_desktop/diagnostics.py": {
       "sha256": "d1a5b487f02bf47c6e627c757411262e05dc7e55aad066e1a7f59a52238a583f",
       "size": 9617
     },
     "ultrastalker_desktop/main.py": {
-      "sha256": "1380c7e772c2760663a950d74b46d8262434c6cfdd79ccff4179fc20a24889d8",
-      "size": 4575
+      "sha256": "491eed57f71312d54bcdc27bc51a172f02b45e674b92b4e913d11c61338063a6",
+      "size": 5423
     },
     "ultrastalker_desktop/player/__init__.py": {
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -274,12 +282,12 @@
       "size": 923
     },
     "ultrastalker_desktop/player/mpv_backend.py": {
-      "sha256": "8200e3bbd1c08502e82272bbed3aa3573bf126c6c65d6c344fd4f463e77671c5",
-      "size": 17648
+      "sha256": "2a7b8d8ce54e8c59d6a4fb4d5567e72dd8cd38b78b52247395f0593937466052",
+      "size": 18234
     },
     "ultrastalker_desktop/player/vlc_backend.py": {
-      "sha256": "3637dd4de06cad087f9700873c003cce40dd57ed8d0614703836af2913491b71",
-      "size": 13943
+      "sha256": "0621cb80c9e3cfcc1c4240b8b28d63c284dd7dc7f9a6142b2625e906268eb606",
+      "size": 14208
     },
     "ultrastalker_desktop/runtime.py": {
       "sha256": "015381790cc9a2e8f4c288ce62d8eefabfaf40622793b3c8f880a55d069d8456",
@@ -317,23 +325,67 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "size": 0
     },
+    "ultrastalker_desktop/ui/app/app.css": {
+      "sha256": "32dd1cda7fc1a150150691a98e29871ef78e7545c29996a4ed3f33c3dcead21d",
+      "size": 40773
+    },
+    "ultrastalker_desktop/ui/app/app.js": {
+      "sha256": "6f168a691c69d04738c5b8d96b7411c356b1690be27e1ee3231cf3d0de667015",
+      "size": 59009
+    },
+    "ultrastalker_desktop/ui/app/fonts/OFL-Cairo.txt": {
+      "sha256": "aa2b13bf0770c59a7fb7a3b793a7df5162c9cb5ad540ec81b0c0c1385946845d",
+      "size": 4379
+    },
+    "ultrastalker_desktop/ui/app/fonts/cairo-arabic-wght-normal.woff2": {
+      "sha256": "748022f50c427456ad66031e855349be3448ee1f05a5f1eb59574ebe0c686749",
+      "size": 30896
+    },
+    "ultrastalker_desktop/ui/app/fonts/cairo-latin-ext-wght-normal.woff2": {
+      "sha256": "da6ada83c3a87c2f0211325dc0a123702e1d4a940958b3e943ac4f37b31d5371",
+      "size": 16648
+    },
+    "ultrastalker_desktop/ui/app/fonts/cairo-latin-wght-normal.woff2": {
+      "sha256": "82c13cbd1352d76e97c3d335caa912ae68fecdc3949a43cf8d149eb892384c1b",
+      "size": 33820
+    },
+    "ultrastalker_desktop/ui/app/index.html": {
+      "sha256": "718e836b330246a8ac29024aa534168e0beed0096cf3dbe5b50c17824fabc66f",
+      "size": 2255
+    },
+    "ultrastalker_desktop/ui/app/mock.js": {
+      "sha256": "c23bbdd5a95cfc863944a2b8b3dd16aa7e6e150462a4e5d4fc8a47deed3857b8",
+      "size": 9906
+    },
+    "ultrastalker_desktop/ui/bridge.py": {
+      "sha256": "ade4a2cdc9e428012ffdcc2fc5741cee701fdc4bd432edc4632311d2bd36f3ec",
+      "size": 22514
+    },
     "ultrastalker_desktop/ui/main_window.py": {
       "sha256": "b6c4c986809fdfb9a9aa19f4c640af94061d8dbbb630f8dc31aa0712638ee472",
       "size": 44660
+    },
+    "ultrastalker_desktop/ui/player_view.py": {
+      "sha256": "78680f56d17f6d07965daee52fec73b6770b40e5d6ad617c5810f52123284a80",
+      "size": 21081
+    },
+    "ultrastalker_desktop/ui/shell.py": {
+      "sha256": "e07844082b222b2e42e424afb8014ca487bfe23442309bd29dba367cb6c5381e",
+      "size": 9551
     }
   },
-  "freeze_utc": "2026-09-10T19:04:15.130712Z",
+  "freeze_utc": "2026-11-13T19:50:10.752793Z",
   "product": "Ultra Stalker Desktop",
   "reference": "Ultra Stalker 8.4.1",
   "reference_artifact": "UltraStalker_V7_UPDATE.ipk",
   "reference_artifact_sha256": "d845f917a3a1507c454a7848dd12714ffe720bf568966e0196c06f14f2131876",
   "reference_parity": "behavioral-reference; original 8.4.1 source bytes unavailable",
-  "source_tree_sha256": "a86218ebf4481f232751c56c7a3803e0af0958a603f57229f4628a6383aedea3",
+  "source_tree_sha256": "14478e016d35890775d29c7511ddc19f0dadb956be5b196a85cb7dd40ab13d45",
   "status": "source-frozen release candidate",
   "validation": {
     "clean_room": "PASS",
     "release_gate": "PASS",
-    "unittest_count": 323
+    "unittest_count": 330
   },
   "version": "0.1.0"
 }

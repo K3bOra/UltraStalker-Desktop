@@ -41,6 +41,16 @@ no ownership of those components is claimed by Ultra Stalker Desktop.
    into licenses/PYTHON_LICENSE.txt and records its version and SHA256 in
    licenses/PYTHON_RUNTIME_PROVENANCE.json.
 
+5. Cairo typeface
+   The interface bundles the Cairo variable font (Copyright 2009 The Cairo
+   Project Authors) under the SIL Open Font License 1.1. The full license
+   text ships beside the font as ultrastalker_desktop/ui/app/fonts/OFL-Cairo.txt.
+
+6. Qt WebEngine
+   The interface is rendered by Qt WebEngine (part of PySide6), which includes
+   Chromium components under their own BSD-style and LGPL licenses. The
+   corresponding notices are collected with the PySide6 package metadata.
+
 The files in licenses/ are provided for license-text availability. This notice
 is informational and is not legal advice or a replacement for the terms of the
 applicable licenses.

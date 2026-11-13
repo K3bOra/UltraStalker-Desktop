@@ -131,6 +131,9 @@ class PlayerView(QWidget):
         pal = self.palette(); pal.setColor(self.backgroundRole(), QColor("#000")); self.setPalette(pal); self.setAutoFillBackground(True)
 
         self.video = _Video(self)
+        # Create the video's native window first so the control bars, created
+        # after it, always stack above the picture.
+        self._video_wid = int(self.video.winId())
         self.top = QFrame(self); self.top.setObjectName("topbar"); self.top.setAttribute(Qt.WA_NativeWindow, True)
         tl = QHBoxLayout(self.top); tl.setContentsMargins(22, 10, 22, 10)
         self.btn_back = self._btn("back", "Back (Esc)", self.close_player, 40)
@@ -240,7 +243,8 @@ class PlayerView(QWidget):
         self.show(); self.raise_(); self.setFocus(); self.show_osd()
         self.cursor_timer.start(); self.poll_timer.start()
         backend = self.backend_factory()
-        backend.embed_wid = int(self.video.winId())
+        backend.embed_wid = self._video_wid
+        self.top.raise_(); self.osd.raise_()
         try:
             backend.set_volume  # mpv keeps the last volume for the next launch
             if hasattr(backend, "volume"):
@@ -334,8 +338,8 @@ class PlayerView(QWidget):
             if near_end and finished is not None and self.on_finished:
                 self.on_finished(finished)
             return
-        if pos is None:
-            return
+        if pos is None or (not dur and self.duration > 0 and not self.live):
+            return  # a slow IPC answer; keep the last known position
         self.position, self.duration = float(pos or 0), float(dur or 0)
         if not self.live and self.duration > 0:
             if not self._seeking:

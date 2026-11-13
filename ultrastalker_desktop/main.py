@@ -125,22 +125,21 @@ def main() -> int:
 
     configure_logging()
     _install_exception_hook()
-    window = None
-    if "--classic" not in sys.argv:
-        try:
-            from ultrastalker_desktop.ui.shell import ShellWindow
-
-            window = ShellWindow()
-        except ImportError as exc:
-            # A build without Qt WebEngine still starts, using the classic window.
-            logging.getLogger(__name__).warning("Cinematic interface unavailable: %s", type(exc).__name__)
-            window = None
-    if window is None:
-        from ultrastalker_desktop.ui.main_window import UltraStalkerWindow
-
-        window = UltraStalkerWindow()
-
     try:
+        window = None
+        if "--classic" not in sys.argv:
+            try:
+                from ultrastalker_desktop.ui.shell import ShellWindow
+
+                window = ShellWindow()
+            except ImportError as exc:
+                # A build without Qt WebEngine still starts with the classic window.
+                logging.getLogger(__name__).warning("Cinematic interface unavailable: %s", type(exc).__name__)
+                window = None
+        if window is None:
+            from ultrastalker_desktop.ui.main_window import UltraStalkerWindow
+
+            window = UltraStalkerWindow()
         window.show()
         return app.exec()
     finally:
