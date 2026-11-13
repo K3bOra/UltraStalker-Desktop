@@ -68,7 +68,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const h = (html) => { const d = document.createElement("template"); d.innerHTML = html.trim(); return d.content.firstElementChild; };
 const debounce = (fn, ms) => { let id; return (...a) => { clearTimeout(id); id = setTimeout(() => fn(...a), ms); }; };
 const initials = (s) => String(s || "?").replace(/^[A-Z0-9]{2,4}\s*[|:\-]\s*/, "").trim().slice(0, 28);
-const fmtTime = (sec) => { const d = new Date(sec * 1000); return d.toLocaleTimeString(LANG === "ar" ? "ar-EG" : "en-GB", { hour: "2-digit", minute: "2-digit" }); };
+const fmtTime = (sec) => new Date(sec * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
 let toastTimer;
 function toast(msg, err = false) {
@@ -85,6 +85,7 @@ function api(method, ...args) {
   });
 }
 function onReply(text) {
+  document.title = "Ultra Stalker · " + seq;
   let m; try { m = JSON.parse(text); } catch { return; }
   const p = pending.get(m.id); if (!p) return; pending.delete(m.id);
   m.ok ? p.resolve(m.data) : p.reject(new Error(m.error || "Error"));
@@ -186,6 +187,7 @@ function route() {
   closeDrawer();
   document.body.classList.remove("dim");
   S.route = name; markRail(name === "details" ? (S.view.get(parts[1])?.kind === "series" ? "series" : "movies") : name);
+  document.title = "Ultra Stalker";
   const v = $("#view"); v.innerHTML = "";
   (views[name] || views.home)(v, parts.slice(1).map(decodeURIComponent));
 }
@@ -208,9 +210,9 @@ views.home = (v) => {
   v.appendChild(page);
   const tick = () => {
     const d = new Date(); const c = $("#clock"); if (!c) return;
-    c.innerHTML = `<div class="time">${d.toLocaleTimeString(LANG === "ar" ? "ar-EG" : "en-GB", { hour: "2-digit", minute: "2-digit" })}</div>
+    c.innerHTML = `<div class="time" dir="ltr">${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}</div>
       <div class="day">${t("days")[d.getDay()]}</div>
-      <div class="date">${d.toLocaleDateString(LANG === "ar" ? "ar-EG" : "en-GB", { day: "numeric", month: "long", year: "numeric" })}</div>
+      <div class="date">${d.toLocaleDateString(LANG === "ar" ? "ar-EG-u-nu-latn" : "en-GB", { day: "numeric", month: "long", year: "numeric" })}</div>
       <div class="status">${S.connected ? `<span><i class="live-dot"></i>${t("serverOk")}</span><b>${esc(S.connected.name)}</b><span dir="ltr">${esc(S.connected.host)}</span>` : `<span>${t("notConnected")}</span>`}<span>v${esc(S.version)}</span></div>`;
   };
   tick(); const iv = setInterval(tick, 15000); cleanup = () => clearInterval(iv);
@@ -484,9 +486,9 @@ const Live = {
     const cur = rows.find((r) => r.start <= now && r.end > now) || rows[0]; const nxt = cur ? rows[rows.indexOf(cur) + 1] : null;
     const pct = cur ? Math.max(0, Math.min(100, (100 * (now - cur.start)) / (cur.end - cur.start))) : 0;
     nn.innerHTML = `<div class="name">${esc(x.title)}</div>
-      ${cur ? `<div class="prog-row"><span class="tag">${t("now")}</span><span class="ttl">${esc(cur.title)}</span><span class="tm">${fmtTime(cur.start)} – ${fmtTime(cur.end)}</span></div>
+      ${cur ? `<div class="prog-row"><span class="tag">${t("now")}</span><span class="ttl">${esc(cur.title)}</span><span class="tm" dir="ltr">${fmtTime(cur.start)} – ${fmtTime(cur.end)}</span></div>
         <div class="bar-prog"><i style="width:${pct}%"></i></div>
-        ${nxt ? `<div class="prog-row next"><span class="tag">${t("next")}</span><span class="ttl">${esc(nxt.title)}</span><span class="tm">${fmtTime(nxt.start)}</span></div>` : ""}
+        ${nxt ? `<div class="prog-row next"><span class="tag">${t("next")}</span><span class="ttl">${esc(nxt.title)}</span><span class="tm" dir="ltr">${fmtTime(nxt.start)}</span></div>` : ""}
         ${cur.description ? `<p class="desc" style="margin-top:10px">${esc(cur.description)}</p>` : ""}`
         : `<p class="desc" style="text-align:center">${e ? t("noEpg") : t("loading")}</p>`}
       <div class="acts" style="margin-top:12px">
@@ -759,6 +761,12 @@ async function boot() {
   S.version = hello.version; S.author = hello.author; S.settings = hello.settings || {}; S.hasKey = hello.has_tmdb_key;
   S.profiles = hello.profiles || []; S.connected = hello.connected;
   LANG = S.settings.ui_language === "en" ? "en" : "ar"; applyLang();
+  const last = S.settings.last_profile;
+  if (!S.connected && last && S.profiles.some((p) => p.name === last)) {
+    $("#view").innerHTML = `<div class="empty" style="height:100%"><div class="spinner"></div><b>${t("connecting")}</b><span>${esc(last)}</span></div>`;
+    try { connectedTo(await api("connect", last)); } catch (e) { toast(e.message, true); location.hash = "#/sources"; route(); return; }
+    location.hash = "#/home"; route(); return;
+  }
   if (!location.hash || location.hash === "#/") location.hash = S.connected || S.profiles.length ? "#/" + (S.connected ? "home" : "sources") : "#/sources";
   route();
 }

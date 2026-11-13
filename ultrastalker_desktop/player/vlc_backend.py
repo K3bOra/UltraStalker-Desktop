@@ -39,6 +39,7 @@ class VLCBackend(PlayerBackend):
         self._play_sequence_lock = threading.RLock()
         self._paused = False
         self._fullscreen = False
+        self.embed_wid = None
 
     def _exe(self):
         override = os.environ.get("ULTRASTALKER_VLC_EXE", "").strip()
@@ -153,6 +154,9 @@ class VLCBackend(PlayerBackend):
             "--http-reconnect",
             "--quiet",
         ]
+        if self.embed_wid:
+            flag = "--drawable-hwnd" if os.name == "nt" else "--drawable-xid"
+            args += [f"{flag}={int(self.embed_wid)}", "--no-video-deco", "--no-osd", "--no-mouse-events", "--no-keyboard-events"]
         if start and start > 5:
             args.append(f"--start-time={float(start)}")
         args.append(url)

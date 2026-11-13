@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 
 MAC_RE = re.compile(r"[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}")
 KINDS = ("live", "movies", "series")
-UI_SETTINGS = ("ui_language", "player", "tmdb_language", "autoplay_next", "live_preview")
+UI_SETTINGS = ("ui_language", "player", "tmdb_language", "autoplay_next", "live_preview", "last_profile")
 
 
 class BridgeError(RuntimeError):
@@ -62,6 +62,7 @@ class Bridge(QObject):
         self.source_key = ""
         self.generation = 0
         self.refs: dict[str, MediaItem] = {}
+        self._episodes: list[MediaItem] = []
         self._refs_lock = threading.Lock()
         self.closing = False
         try:
@@ -305,6 +306,14 @@ class Bridge(QObject):
         self.adapter, self.profile, self.source_key = adapter, p, profile_identity(p)
         with self._refs_lock:
             self.refs.clear()
+        self._episodes = []
+        if self.settings.get("last_profile") != p.name:
+            try:
+                merged = dict(self.settings, last_profile=p.name)
+                save_settings(merged)
+                self.settings = merged
+            except Exception as exc:
+                log.debug("Could not remember last source: %s", type(exc).__name__)
         return self._connected_view()
 
     def api_connect(self, name):
@@ -344,6 +353,7 @@ class Bridge(QObject):
         except Exception:
             watched = set()
         rows.sort(key=lambda x: ((x.season or 0), (x.episode or 0), x.title.casefold()))
+        self._episodes = list(rows)
         seasons: dict[int, list] = {}
         for x in rows:
             seasons.setdefault(int(x.season or 1), []).append(
@@ -481,6 +491,25 @@ class Bridge(QObject):
             source_key = self.source_key
             self.on_gui(lambda: self.host.start_playback(item, view, urls, start, source_key))
         return {"started": True, "title": item.title}
+
+    def play_next_episode(self, item: MediaItem):
+        """Called by the player when an episode ends: start the following one."""
+        if self.settings.get("autoplay_next") is False or not self._episodes:
+            return
+        key = db.media_key(item)
+        idx = next((i for i, x in enumerate(self._episodes) if db.media_key(x) == key), None)
+        if idx is None or idx + 1 >= len(self._episodes):
+            return
+        ref = self._ref(self._episodes[idx + 1])
+
+        def task():
+            try:
+                self.api_play(ref, True)
+                self.emit_event("toast", message=self._episodes[idx + 1].title)
+            except Exception as exc:
+                self.on_gui(lambda: self.emit_event("toast", message=self._safe_error(exc), error=True))
+
+        self.pool.submit(task)
 
     def api_preview(self, ref, rect):
         """Live preview inside column 3; rect is the video box in CSS pixels."""

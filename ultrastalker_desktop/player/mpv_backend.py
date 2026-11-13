@@ -36,6 +36,10 @@ class MPVBackend(PlayerBackend):
         self._reader_thread = None
         self._reader_stop = threading.Event()
         self._play_sequence_lock = threading.RLock()
+        # When set, video renders inside this native window (Qt winId) instead
+        # of mpv's own window. The app draws its own controls around it.
+        self.embed_wid = None
+        self.volume = 100
 
     def _exe(self):
         for path in resource_candidates("mpv.exe"):
@@ -156,6 +160,16 @@ class MPVBackend(PlayerBackend):
             "--network-timeout=15",
             "--input-ipc-server=" + self.pipe,
         ]
+        if self.embed_wid:
+            args += [
+                "--wid=" + str(int(self.embed_wid)),
+                "--input-vo-keyboard=no",
+                "--input-cursor=no",
+                "--osc=no",
+                "--osd-level=0",
+                "--cursor-autohide=no",
+                "--volume=" + str(int(self.volume)),
+            ]
         if start and start > 5:
             args += ["--start=" + str(float(start))]
         args.append(url)
@@ -383,6 +397,7 @@ class MPVBackend(PlayerBackend):
 
     def set_volume(self, value):
         volume = max(0.0, min(100.0, float(value)))
+        self.volume = volume
         self._require_command(self._command_exchange("set_property", "volume", volume), "volume")
         return True
 
