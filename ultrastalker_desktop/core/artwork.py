@@ -58,13 +58,23 @@ class ArtworkCache:
     def _looks_like_image(data: bytes) -> bool:
         if len(data) < 8:
             return False
-        return (
-            data.startswith(b"\xff\xd8\xff")
-            or data.startswith(b"\x89PNG\r\n\x1a\n")
-            or data.startswith((b"GIF87a", b"GIF89a"))
-            or data.startswith(b"BM")
-            or (data.startswith(b"RIFF") and data[8:12] == b"WEBP")
-        )
+        return bool(ArtworkCache.mime_type(data))
+
+    @staticmethod
+    def mime_type(data: bytes) -> str:
+        if data.startswith(b"\xff\xd8\xff"):
+            return "image/jpeg"
+        if data.startswith(b"\x89PNG\r\n\x1a\n"):
+            return "image/png"
+        if data.startswith((b"GIF87a", b"GIF89a")):
+            return "image/gif"
+        if data.startswith(b"BM"):
+            return "image/bmp"
+        if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+            return "image/webp"
+        if data[4:8] == b"ftyp" and data[8:12] in (b"avif", b"avis"):
+            return "image/avif"
+        return ""
 
     def _url_lock(self, url: str):
         digest = hashlib.sha256(url.encode("utf-8", "surrogatepass")).digest()
@@ -84,31 +94,33 @@ class ArtworkCache:
         except OSError:
             return None
 
-    def _download(self, url: str) -> bytes:
-        response = self.http.get(url, timeout=request_timeout(8,4), stream=True)
-        response.raise_for_status()
-        content_type = str(response.headers.get("Content-Type") or "").lower()
-        if content_type and not content_type.startswith("image/"):
-            raise ArtworkError("Artwork response was not an image")
+    def _download(self, url: str, headers: dict | None = None) -> bytes:
+        options = {"timeout": request_timeout(8, 4), "stream": True}
+        if headers:
+            options.update(headers=headers, allow_redirects=False)
+        response = self.http.get(url, **options)
+        try:
+            response.raise_for_status()
+            content_type = str(response.headers.get("Content-Type") or "").lower()
+            if content_type and not (content_type.startswith("image/") or content_type.split(";")[0] == "application/octet-stream"):
+                raise ArtworkError("Artwork response was not an image")
 
-        data = bytearray()
-        iterator = getattr(response, "iter_content", None)
-        if callable(iterator):
-            for chunk in iterator(64 * 1024):
-                if not chunk:
-                    continue
+            data = bytearray()
+            iterator = getattr(response, "iter_content", None)
+            chunks = iterator(64 * 1024) if callable(iterator) else (getattr(response, "content", b""),)
+            for chunk in chunks:
                 data.extend(chunk)
                 if len(data) > self.max_download_bytes:
                     raise ArtworkError("Artwork image exceeded size limit")
-        else:
-            data.extend(bytes(getattr(response, "content", b"")))
-            if len(data) > self.max_download_bytes:
-                raise ArtworkError("Artwork image exceeded size limit")
 
-        payload = bytes(data)
-        if not self._looks_like_image(payload):
-            raise ArtworkError("Artwork response had an unsupported image format")
-        return payload
+            payload = bytes(data)
+            if not self._looks_like_image(payload):
+                raise ArtworkError("Artwork response had an unsupported image format")
+            return payload
+        finally:
+            close = getattr(response, "close", None)
+            if close:
+                close()
 
     def _write_atomic(self, path: Path, data: bytes) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
@@ -165,20 +177,24 @@ class ArtworkCache:
         except OSError:
             pass
 
-    def fetch(self, url: str) -> bytes | None:
+    def fetch(self, url: str, *, headers: dict | None = None, namespace: str = "") -> bytes | None:
         url = str(url or "").strip()
         if not self._valid_url(url):
             return None
-        path = self._path(url)
-        with self._url_lock(url):
+        key = f"{namespace}\n{url}" if namespace else url
+        path = self._path(key)
+        with self._url_lock(key):
             cached = self._read_fresh(path)
             if cached is not None:
                 return cached
             try:
-                data = self._download(url)
+                data = self._download(url, headers) if headers else self._download(url)
             except Exception:
                 return None
-            self._write_atomic(path, data)
+            try:
+                self._write_atomic(path, data)
+            except OSError:
+                return data
         # Pruning never holds the per-URL lock, so one slow directory scan cannot
         # delay another image download. Concurrent prunes are serialized.
         with self._prune_lock:

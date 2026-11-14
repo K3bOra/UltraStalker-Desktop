@@ -7,19 +7,23 @@ window (``PlayerView``).
 """
 from __future__ import annotations
 
+import base64
 import logging
 import os
-import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from PySide6.QtCore import QRect, Qt, QTimer, QUrl
+from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QRect, Qt, QTimer, QUrl
 from PySide6.QtGui import QColor, QDesktopServices, QIcon
 from PySide6.QtWebChannel import QWebChannel
-from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile, QWebEngineSettings
+from PySide6.QtWebEngineCore import (
+    QWebEnginePage, QWebEngineProfile, QWebEngineSettings, QWebEngineUrlRequestJob,
+    QWebEngineUrlScheme, QWebEngineUrlSchemeHandler,
+)
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QMainWindow, QWidget
 
-from ultrastalker_desktop import __version__
+from ultrastalker_desktop.core.artwork import ArtworkCache
 from ultrastalker_desktop.player.mpv_backend import MPVBackend
 from ultrastalker_desktop.player.vlc_backend import VLCBackend
 from ultrastalker_desktop.runtime import local_data_dir, resource_candidates
@@ -34,12 +38,76 @@ def app_dir() -> Path:
     return Path(__file__).resolve().parent / "app"
 
 
+def register_art_scheme():
+    scheme = QWebEngineUrlScheme(b"usart")
+    scheme.setSyntax(QWebEngineUrlScheme.Syntax.Host)
+    scheme.setFlags(QWebEngineUrlScheme.Flag.LocalScheme)
+    QWebEngineUrlScheme.registerScheme(scheme)
+
+
+class _ArtworkHandler(QWebEngineUrlSchemeHandler):
+    def __init__(self, bridge, parent):
+        super().__init__(parent)
+        self.bridge = bridge
+        self.cache = ArtworkCache()
+        self.pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="us-artwork")
+        self.pending = set()
+
+    def requestStarted(self, job):
+        request = job.requestUrl()
+        if request.host() != "image" or not job.initiator().isLocalFile():
+            job.fail(QWebEngineUrlRequestJob.Error.RequestDenied)
+            return
+        try:
+            encoded = request.path().strip("/").encode("ascii")
+            if len(encoded) > 8192:
+                raise ValueError
+            encoded += b"=" * (-len(encoded) % 4)
+            url = base64.b64decode(encoded, altchars=b"-_", validate=True).decode("utf-8")
+        except (ValueError, UnicodeError):
+            job.fail(QWebEngineUrlRequestJob.Error.UrlInvalid)
+            return
+        # Cap outstanding image downloads. If a route goes away, its queued work
+        # is cancelled through the corresponding WebEngine request.
+        if len(self.pending) >= 64:
+            job.fail(QWebEngineUrlRequestJob.Error.RequestFailed)
+            return
+        future = self.pool.submit(self.fetch, url)
+        self.pending.add(future)
+        job.destroyed.connect(lambda *_: future.cancel())
+        future.add_done_callback(lambda done: self.bridge.on_gui(lambda: self._reply(job, done)))
+
+    def fetch(self, url):
+        headers, namespace = self.bridge.artwork_context(url)
+        return self.cache.fetch(url, headers=headers, namespace=namespace)
+
+    def _reply(self, job, future):
+        self.pending.discard(future)
+        try:
+            data = future.result()
+        except Exception:
+            data = None
+        try:
+            if not data:
+                job.fail(QWebEngineUrlRequestJob.Error.UrlNotFound)
+                return
+            buffer = QBuffer(job)
+            buffer.setData(QByteArray(data))
+            buffer.open(QIODevice.OpenModeFlag.ReadOnly)
+            job.reply(self.cache.mime_type(data).encode("ascii"), buffer)
+        except RuntimeError:
+            pass
+
+    def shutdown(self):
+        self.pool.shutdown(wait=False, cancel_futures=True)
+
+
 class _Page(QWebEnginePage):
     """Keep the window on the local interface; nothing navigates it elsewhere."""
 
     def acceptNavigationRequest(self, url, nav_type, is_main_frame):
         if not is_main_frame:
-            return True
+            return False
         if url.isLocalFile() and Path(url.toLocalFile()).resolve().parent == app_dir().resolve():
             return True
         if url.scheme() in ("http", "https") and nav_type == QWebEnginePage.NavigationTypeLinkClicked:
@@ -91,14 +159,16 @@ class ShellWindow(QMainWindow):
         self.profile.setHttpCacheMaximumSize(400 * 1024 * 1024)
         self.profile.setPersistentCookiesPolicy(QWebEngineProfile.NoPersistentCookies)
 
+        self.artwork = _ArtworkHandler(self.bridge, self.profile)
+        self.profile.installUrlSchemeHandler(b"usart", self.artwork)
         self.view = QWebEngineView(self.central)
         self.page = _Page(self.profile, self.view)
         self.page.setBackgroundColor(QColor("#030807"))
         s = self.page.settings()
-        s.setAttribute(QWebEngineSettings.LocalContentCanAccessRemoteUrls, True)
+        s.setAttribute(QWebEngineSettings.LocalContentCanAccessRemoteUrls, False)
         s.setAttribute(QWebEngineSettings.LocalContentCanAccessFileUrls, True)
         s.setAttribute(QWebEngineSettings.JavascriptCanOpenWindows, False)
-        s.setAttribute(QWebEngineSettings.ScrollAnimatorEnabled, True)
+        s.setAttribute(QWebEngineSettings.ScrollAnimatorEnabled, False)
         s.setAttribute(QWebEngineSettings.ErrorPageEnabled, False)
         self.view.setPage(self.page)
         self.view.setContextMenuPolicy(Qt.NoContextMenu)
@@ -108,7 +178,7 @@ class ShellWindow(QMainWindow):
         self.page.setWebChannel(self.channel)
         self.view.load(QUrl.fromLocalFile(str(app_dir() / "index.html")))
 
-        self.player = PlayerView(self._backend, self.central)
+        self.player = PlayerView(self._backend, self.central, artwork_fetcher=self.artwork.fetch)
         self.player.on_progress_save = self._save_progress
         self.player.on_finished = self._finished
         self.player.closed.connect(self._player_closed)
@@ -118,14 +188,17 @@ class ShellWindow(QMainWindow):
         self.preview.hide()
         self.preview_backend = None
         self.preview_gen = 0
+        self.preview_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="us-preview")
         self._layout()
         QTimer.singleShot(0, self._dark_title_bar)
 
     # ------------------------------------------------------------------ window
     def _layout(self):
         r = self.central.rect()
-        self.view.setGeometry(r)
-        self.player.setGeometry(r)
+        if hasattr(self, "view"):
+            self.view.setGeometry(r)
+        if hasattr(self, "player"):
+            self.player.setGeometry(r)
 
     def _dark_title_bar(self):
         if os.name != "nt":
@@ -178,9 +251,14 @@ class ShellWindow(QMainWindow):
 
     def start_playback(self, item, view, urls, start, source_key):
         self.stop_preview()
-        self._source_key = source_key
         self.player.set_language(self.bridge.settings.get("ui_language") or "ar")
-        self.player.start(item, view, urls, start, source_key)
+        self.view.hide()
+        try:
+            self.player.start(item, view, urls, start, source_key)
+        except Exception:
+            self.player.close_player(silent=True)
+            self.view.show()
+            self.bridge.emit_event("player", state="error", message="Could not start playback.")
 
     def stop_playback(self, silent=False):
         self.stop_preview()
@@ -188,12 +266,13 @@ class ShellWindow(QMainWindow):
             self.player.close_player(silent=True)
 
     def _player_closed(self):
+        self.view.show()
         self.view.setFocus()
         self.bridge.emit_event("player", state="closed")
 
-    def _save_progress(self, item, pos, dur):
+    def _save_progress(self, source_key, item, pos, dur):
         try:
-            db.update_progress(self._source_key, item, pos, dur)
+            db.update_progress(source_key, item, pos, dur)
         except Exception as exc:
             log.warning("Progress save failed: %s", type(exc).__name__)
 
@@ -218,10 +297,10 @@ class ShellWindow(QMainWindow):
         self.preview_gen += 1
         gen = self.preview_gen
         self.preview.setGeometry(r)
+        backend = self._backend()
+        backend.embed_wid = self.preview.ensure_native_wid()
         self.preview.show()
         self.preview.raise_()
-        backend = self._backend()
-        backend.embed_wid = int(self.preview.winId())
         self.preview_backend = backend
 
         def task():
@@ -231,7 +310,7 @@ class ShellWindow(QMainWindow):
                 if gen == self.preview_gen:
                     self.bridge.on_gui(lambda: self._preview_failed(gen))
 
-        self.player.pool.submit(task)
+        self.preview_pool.submit(task)
 
     def _preview_failed(self, gen):
         if gen != self.preview_gen:
@@ -248,7 +327,7 @@ class ShellWindow(QMainWindow):
         self.preview_gen += 1
         b, self.preview_backend = self.preview_backend, None
         if b is not None:
-            self.player.pool.submit(b.stop)
+            self.preview_pool.submit(b.stop)
         if hide:
             self.preview.hide()
 
@@ -256,6 +335,8 @@ class ShellWindow(QMainWindow):
     def closeEvent(self, e):
         try:
             self.stop_preview()
+            self.preview_pool.shutdown(wait=False)
+            self.artwork.shutdown()
             self.player.shutdown()
             self.bridge.shutdown()
         finally:

@@ -12,7 +12,7 @@ EXCLUDED_DIRS = {
     '.git', '.venv', '.buildstate', 'build', 'dist', 'release', 'vendor',
     '__pycache__', '.pytest_cache',
 }
-EXCLUDED_FILES = {'.coverage', 'SOURCE_FREEZE.json'}
+EXCLUDED_FILES = {'.coverage', '.git', 'SOURCE_FREEZE.json'}
 
 
 def _sha256(path: Path) -> str:

@@ -105,13 +105,17 @@ QSlider::handle:horizontal { width: 16px; height: 16px; margin: -6px 0; border-r
 class _Video(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setAttribute(Qt.WA_NativeWindow, True)
         self.setAttribute(Qt.WA_DontCreateNativeAncestors, True)
         self.setAttribute(Qt.WA_OpaquePaintEvent, True)
         self.setAutoFillBackground(True)
         pal = self.palette()
         pal.setColor(self.backgroundRole(), QColor("#000000"))
         self.setPalette(pal)
+
+
+    def ensure_native_wid(self):
+        self.setAttribute(Qt.WA_NativeWindow, True)
+        return int(self.winId())
 
 
 class VideoSurface(_Video):
@@ -123,9 +127,10 @@ class PlayerView(QWidget):
     failed = Signal(str)
     _ui = Signal(object)
 
-    def __init__(self, backend_factory, parent=None):
+    def __init__(self, backend_factory, parent=None, artwork_fetcher=None):
         super().__init__(parent)
         self.backend_factory = backend_factory
+        self.artwork_fetcher = artwork_fetcher
         self.backend = None
         self.pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="us-player")
         self.generation = 0
@@ -153,16 +158,15 @@ class PlayerView(QWidget):
         self.video = _Video(self)
         # Create the video's native window first so the control bars, created
         # after it, always stack above the picture.
-        self._video_wid = int(self.video.winId())
         self.lang = "ar"
-        self.top = QFrame(self); self.top.setObjectName("topbar"); self.top.setAttribute(Qt.WA_NativeWindow, True)
+        self.top = QFrame(self); self.top.setObjectName("topbar")
         tl = QHBoxLayout(self.top); tl.setContentsMargins(22, 10, 22, 10)
         self.btn_back = self._btn("back", "", self.close_player, 40); self.btn_back.setObjectName("round")
         self.status = QLabel(""); self.status.setObjectName("status")
         self.top_title = QLabel(""); self.top_title.setObjectName("meta")
         tl.addWidget(self.btn_back); tl.addSpacing(12); tl.addWidget(self.top_title); tl.addSpacing(10); tl.addWidget(self.status); tl.addStretch(1)
 
-        self.osd = QFrame(self); self.osd.setObjectName("osd"); self.osd.setAttribute(Qt.WA_NativeWindow, True)
+        self.osd = QFrame(self); self.osd.setObjectName("osd")
         outer = QHBoxLayout(self.osd); outer.setContentsMargins(26, 16, 26, 16); outer.setSpacing(20)
         self.poster = QLabel(); self.poster.setObjectName("poster"); self.poster.setFixedSize(104, 156); self.poster.setAlignment(Qt.AlignCenter)
         outer.addWidget(self.poster, 0, Qt.AlignVCenter)
@@ -258,22 +262,16 @@ class PlayerView(QWidget):
         self.poster.setText(""); self.poster.setPixmap(pm)
 
     def _load_poster(self, url, gen):
-        def task():
-            try:
-                import requests
-                r = requests.get(url, timeout=6)
-                if r.ok and len(r.content) < 6_000_000:
-                    return r.content
-            except Exception:
-                return None
-            return None
+        if self.artwork_fetcher is None:
+            return
+
         def done(fut):
             try:
                 data = fut.result()
             except Exception:
                 data = None
             self._ui.emit(lambda: gen == self.generation and self._set_poster(data))
-        self.pool.submit(task).add_done_callback(done)
+        self.pool.submit(self.artwork_fetcher, url).add_done_callback(done)
 
     def _stream_info(self, b, gen):
         """Resolution / codecs shown as small chips, like the receiver's info bar (mpv only)."""
@@ -374,7 +372,11 @@ class PlayerView(QWidget):
         self.show(); self.raise_(); self.setFocus(); self.show_osd()
         self.cursor_timer.start(); self.poll_timer.start()
         backend = self.backend_factory()
-        backend.embed_wid = self._video_wid
+        self.top.setAttribute(Qt.WA_DontCreateNativeAncestors, True)
+        self.osd.setAttribute(Qt.WA_DontCreateNativeAncestors, True)
+        self.top.setAttribute(Qt.WA_NativeWindow, True)
+        self.osd.setAttribute(Qt.WA_NativeWindow, True)
+        backend.embed_wid = self.video.ensure_native_wid()
         self.top.raise_(); self.osd.raise_()
         try:
             backend.set_volume  # mpv keeps the last volume for the next launch
@@ -494,8 +496,7 @@ class PlayerView(QWidget):
         if not force and now - self._last_save < 5:
             return
         self._last_save = now
-        item, pos, dur = self.item, self.position, self.duration
-        self.pool.submit(lambda: self.on_progress_save(item, pos, dur))
+        self.pool.submit(self.on_progress_save, self.source_key, self.item, self.position, self.duration)
 
     # ------------------------------------------------------------------ controls
     def _control(self, fn, done=None):

@@ -95,6 +95,9 @@ def main() -> int:
         try:
             # Qt WebEngine must be loaded before the application object exists.
             import PySide6.QtWebEngineWidgets  # noqa: F401
+            from ultrastalker_desktop.ui.shell import register_art_scheme
+
+            register_art_scheme()
             QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
         except ImportError:
             pass

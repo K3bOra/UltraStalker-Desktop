@@ -114,6 +114,37 @@ class RichTMDb:
         r.raise_for_status()
         return r.json()
 
+    def poster(self, title, kind="movies", year="", tmdb_id=""):
+        if not self.key:
+            return ""
+        typ = "tv" if kind in ("series", "episode") else "movie"
+        name, guessed_year = clean_title(title)
+        year = str(year or guessed_year or "")[:4]
+        key = f"tmdb-poster:{typ}:{self.language}:{tmdb_id or name.casefold()}:{year}"
+        cached = cache_get(key)
+        if isinstance(cached, dict):
+            return cached["poster"]
+        try:
+            if tmdb_id:
+                row = self._get(f"/{typ}/{tmdb_id}", language=self.language)
+            else:
+                params = {"query": name, "include_adult": "false", "language": self.language}
+                year_key = "first_air_date_year" if typ == "tv" else "year"
+                if year.isdigit():
+                    params[year_key] = year
+                rows = self._get("/search/" + typ, **params).get("results") or []
+                if not rows and year_key in params:
+                    del params[year_key]
+                    rows = self._get("/search/" + typ, **params).get("results") or []
+                row = rows[0] if rows else {}
+            path = row.get("poster_path")
+            url = _IMG + "w342" + path if path else ""
+            cache_set(key, {"poster": url}, 7 * 86400 if url else 86400)
+            return url
+        except Exception as exc:
+            logging.getLogger(__name__).debug("TMDb poster failed: %s", type(exc).__name__)
+            return ""
+
     def lookup(self, title: str, kind: str = "movies", year: str = "", tmdb_id: str = ""):
         if not self.key or not (title or tmdb_id):
             return None

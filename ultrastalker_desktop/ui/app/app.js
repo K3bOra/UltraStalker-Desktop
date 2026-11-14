@@ -7,6 +7,7 @@
 const STR = {
   ar: {
     home: "الرئيسية", live: "البث المباشر", movies: "الأفلام", series: "المسلسلات", search: "البحث", favorites: "المفضلة",
+    cloud: "كتالوج Ultra Stalker", cloudServers: "السيرفرات", cloudAccounts: "الحسابات", more: "عرض المزيد",
     sources: "المصادر", settings: "الإعدادات", categories: "الأقسام", all: "الكل", channels: "القنوات",
     play: "تشغيل", resume: "استكمال", fromStart: "من الأول", details: "التفاصيل", trailer: "الإعلان", favorite: "مفضلة",
     fullscreen: "ملء الشاشة", overview: "القصة", cast: "الأبطال", country: "البلد", language: "اللغة",
@@ -40,6 +41,7 @@ const STR = {
   },
   en: {
     home: "Home", live: "Live TV", movies: "Movies", series: "Series", search: "Search", favorites: "Favorites",
+    cloud: "Ultra Stalker catalog", cloudServers: "Servers", cloudAccounts: "Accounts", more: "Load more",
     sources: "Sources", settings: "Settings", categories: "Categories", all: "All", channels: "Channels",
     play: "Play", resume: "Resume", fromStart: "From start", details: "Details", trailer: "Trailer", favorite: "Favorite",
     fullscreen: "Full screen", overview: "Overview", cast: "Cast", country: "Country", language: "Language",
@@ -81,8 +83,57 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const h = (html) => { const d = document.createElement("template"); d.innerHTML = html.trim(); return d.content.firstElementChild; };
 const debounce = (fn, ms) => { let id; return (...a) => { clearTimeout(id); id = setTimeout(() => fn(...a), ms); }; };
-const imgTag = (x, extra = "") => x.poster ? `<img src="${esc(x.poster)}" ${x.poster_alt ? `data-alt="${esc(x.poster_alt)}"` : ""} alt="" loading="lazy" ${extra} onerror="imgFail(this)">` : "";
-window.imgFail = (el) => { const alt = el.dataset.alt; if (alt) { el.removeAttribute("data-alt"); el.src = alt; } else el.remove(); };
+function artUrl(url) {
+  if (!url || !/^https?:\/\//i.test(url) || !window.qt?.webChannelTransport) return url || "";
+  const bytes = new TextEncoder().encode(url);
+  const encoded = btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(""));
+  return "usart://image/" + encoded.replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+const imgTag = (x, extra = "") => x.poster ? `<img src="${esc(artUrl(x.poster))}" ${x.poster_alt ? `data-alt="${esc(artUrl(x.poster_alt))}"` : ""} alt="" loading="lazy" decoding="async" ${extra} onerror="imgFail(this)">` : "";
+window.imgFail = (el) => {
+  const alt = el.dataset.alt;
+  if (alt) { el.removeAttribute("data-alt"); el.src = alt; return; }
+  const card = el.closest(".poster[data-ref]");
+  el.remove();
+  if (card) loadCardPoster(card);
+};
+const posterRequests = new Map();
+const posterQueue = new Set();
+let posterPending = 0;
+function drainPosters() {
+  for (const card of posterQueue) {
+    if (posterPending >= 4) break;
+    posterQueue.delete(card);
+    loadCardPoster(card);
+  }
+}
+async function loadCardPoster(card) {
+  if (!card.isConnected || card.dataset.tmdbTried) return;
+  const ref = card.dataset.ref;
+  if (!posterRequests.has(ref) && posterPending >= 4) {
+    posterQueue.add(card);
+    return;
+  }
+  card.dataset.tmdbTried = "1";
+  if (!posterRequests.has(ref)) {
+    if (posterRequests.size >= 512) posterRequests.delete(posterRequests.keys().next().value);
+    posterPending++;
+    posterRequests.set(ref, api("poster", ref).catch(() => "").finally(() => { posterPending--; drainPosters(); }));
+  }
+  const url = await posterRequests.get(ref);
+  if (card.isConnected && url && !$(".art img", card)) {
+    $(".art", card).insertAdjacentHTML("beforeend", imgTag({ poster: url }));
+  }
+}
+const posterObserver = new IntersectionObserver((entries) => {
+  for (const { target, isIntersecting } of entries) {
+    if (isIntersecting) { posterObserver.unobserve(target); loadCardPoster(target); }
+  }
+}, { rootMargin: "160px" });
+function watchPosters(root) {
+  if (!window.qt?.webChannelTransport) return;
+  $$(".poster[data-ref]", root).filter((card) => !$(".art img", card)).forEach((card) => posterObserver.observe(card));
+}
 const initials = (s) => String(s || "?").replace(/^[A-Z0-9]{2,4}\s*[|:\-]\s*/, "").trim().slice(0, 28);
 const fmtTime = (sec) => new Date(sec * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
@@ -101,7 +152,6 @@ function api(method, ...args) {
   });
 }
 function onReply(text) {
-  document.title = "Ultra Stalker · " + seq;
   let m; try { m = JSON.parse(text); } catch { return; }
   const p = pending.get(m.id); if (!p) return; pending.delete(m.id);
   m.ok ? p.resolve(m.data) : p.reject(new Error(m.error || "Error"));
@@ -109,48 +159,91 @@ function onReply(text) {
 function onPush(text) {
   let e; try { e = JSON.parse(text); } catch { return; }
   if (e.type === "toast") toast(e.message, e.error);
-  if (e.type === "player" && e.state === "closed" && S.route === "live") Live.rearm();
-  if (e.type === "player" && e.state === "error") toast(e.message || "Playback failed", true);
+  if (e.type === "player" && e.state === "closed") { Live.playing = false; if (S.route === "live") Live.rearm(); }
+  if (e.type === "player" && e.state === "error") { Live.playing = false; toast(e.message || "Playback failed", true); }
   if (e.type === "player" && e.state === "preview-error") Live.previewFailed(e.message);
 }
 
 /* ------------------------------------------------------------------ state */
 const S = {
   route: "", settings: {}, connected: null, profiles: [], version: "", author: "",
-  cats: {}, cat: {}, items: new Map(), det: new Map(), view: new Map(), hist: null,
+  source: 0, cats: {}, cat: {}, items: new Map(), det: new Map(), view: new Map(), hist: null,
 };
 const remember = (rows) => { rows.forEach((x) => S.view.set(x.ref, x)); return rows; };
 
 async function categories(kind) {
-  if (!S.cats[kind]) S.cats[kind] = await api("categories", kind);
-  return S.cats[kind];
+  const cache = S.cats;
+  if (!cache[kind]) cache[kind] = await api("categories", kind);
+  return cache[kind];
 }
 async function items(kind, cat) {
+  const source = S.source;
+  const cache = S.items;
   const key = kind + "|" + (cat || "");
-  if (!S.items.has(key)) S.items.set(key, remember(await api("items", kind, cat || "")));
-  return S.items.get(key);
+  if (cache.has(key)) return cache.get(key);
+  const rows = await api("items", kind, cat || "");
+  if (source !== S.source || cache !== S.items) return [];
+  if (cache.size >= 12) cache.delete(cache.keys().next().value);
+  cache.set(key, remember(rows));
+  return rows;
 }
 async function details(ref) {
-  if (!S.det.has(ref)) S.det.set(ref, api("details", ref).then((d) => { S.view.set(ref, Object.assign(S.view.get(ref) || {}, d)); return d; }));
+  const source = S.source;
+  if (!S.det.has(ref)) {
+    if (S.det.size >= 128) S.det.delete(S.det.keys().next().value);
+    const request = api("details", ref).then((data) => {
+      if (source === S.source && S.det.get(ref) === request) S.view.set(ref, { ...S.view.get(ref), ...data });
+      return data;
+    });
+    S.det.set(ref, request);
+    request.catch(() => { if (S.det.get(ref) === request) S.det.delete(ref); });
+  }
   return S.det.get(ref);
 }
 
 /* ------------------------------------------------------------------ backdrop */
-let bdFlip = false, bdUrl = "";
-function backdrop(url, soft) {
-  if ((url || "") === bdUrl) return; bdUrl = url || "";
-  const a = $("#bd-a"), b = $("#bd-b"); const on = bdFlip ? a : b, off = bdFlip ? b : a; bdFlip = !bdFlip;
-  if (!url) { a.classList.remove("on"); b.classList.remove("on"); return; }
-  const img = new Image(); img.onload = () => { if (bdUrl !== url) return; on.style.backgroundImage = `url("${url}")`; on.classList.toggle("soft", !!soft); on.classList.add("on"); off.classList.remove("on"); };
-  img.src = url;
+let backdropRequest = 0;
+let backdropImage = null;
+function backdrop(url) {
+  const target = $("#bd-a");
+  const request = ++backdropRequest;
+  if (backdropImage) backdropImage.src = "";
+  if (!url) {
+    target.classList.remove("on");
+    target.style.removeProperty("background-image");
+    delete target.dataset.src;
+    return;
+  }
+  const src = artUrl(url);
+  if (target.dataset.src === src) return;
+  const img = new Image();
+  backdropImage = img;
+  img.onload = () => {
+    if (request !== backdropRequest) return;
+    target.dataset.src = src;
+    target.style.backgroundImage = `url(${JSON.stringify(src)})`;
+    target.classList.add("on");
+  };
+  img.src = src;
 }
 
 /* ------------------------------------------------------------------ chrome */
+let barActions = [];
+const go = (section) => { location.hash = "#/" + section; };
+const goBack = () => history.length > 1 ? history.back() : go("home");
 function bar(ctx, keys, count) {
   $("#bar-ctx").textContent = ctx || "";
-  $("#bar-keys").innerHTML = (keys || []).map(([k, label, dot]) => `<span>${dot ? `<i class="dot ${dot}"></i>` : `<kbd>${esc(k)}</kbd>`}${esc(label)}</span>`).join("");
+  barActions = keys || [];
+  $("#bar-keys").innerHTML = barActions.map(([key, label, dot, action], i) => {
+    const content = (dot ? `<i class="dot ${dot}"></i>` : `<kbd>${esc(key)}</kbd>`) + esc(label);
+    return action ? `<button type="button" data-action="${i}">${content}</button>` : `<span>${content}</span>`;
+  }).join("");
   $("#bar-count").textContent = count || "";
 }
+$("#bar-keys").onclick = (e) => {
+  const button = e.target.closest("button[data-action]");
+  if (button) barActions[Number(button.dataset.action)]?.[3]?.();
+};
 function applyLang() {
   document.documentElement.lang = LANG; document.documentElement.dir = LANG === "ar" ? "rtl" : "ltr";
   $$("[data-t]").forEach((el) => (el.textContent = t(el.dataset.t)));
@@ -167,7 +260,7 @@ function posterHTML(x, opts = {}) {
 }
 function logoHTML(d, fallbackTitle) {
   const tm = d.tmdb || {};
-  return tm.logo ? `<img src="${esc(tm.logo)}" alt="${esc(tm.title || fallbackTitle)}">` : `<div class="t">${esc(tm.title || fallbackTitle)}</div>`;
+  return tm.logo ? `<img src="${esc(artUrl(tm.logo))}" alt="${esc(tm.title || fallbackTitle)}">` : `<div class="t">${esc(tm.title || fallbackTitle)}</div>`;
 }
 function metaChips(d) {
   const tm = d.tmdb || {}; const out = [];
@@ -179,7 +272,7 @@ function metaChips(d) {
   return out.join("");
 }
 function castHTML(tm, n) {
-  return (tm.cast || []).slice(0, n).map((c) => `<div class="p"><div class="ph">${c.photo ? `<img src="${esc(c.photo)}" alt="" loading="lazy">` : esc((c.name || "?")[0])}</div><b>${esc(c.name)}</b><span>${esc(c.role)}</span></div>`).join("");
+  return (tm.cast || []).slice(0, n).map((c) => `<div class="p"><div class="ph">${c.photo ? `<img src="${esc(artUrl(c.photo))}" alt="" loading="lazy">` : esc((c.name || "?")[0])}</div><b>${esc(c.name)}</b><span>${esc(c.role)}</span></div>`).join("");
 }
 function scoresHTML(d) {
   const tm = d.tmdb || {}; const out = [];
@@ -196,16 +289,21 @@ function needConnection() {
 /* ------------------------------------------------------------------ router */
 const views = {};
 let cleanup = null;
+let routeId = 0;
 function route() {
+  routeId++;
+  posterObserver.disconnect();
+  posterQueue.clear();
+  bar("", [], "");
   const parts = (location.hash || "#/home").slice(2).split("/");
   const name = parts[0] || "home";
   if (cleanup) { try { cleanup(); } catch {} cleanup = null; }
   closeDrawer();
   document.body.classList.remove("dim");
+  if (name !== S.route) backdrop("");
   S.route = name; markRail(name === "details" ? (S.view.get(parts[1])?.kind === "series" ? "series" : "movies") : name);
-  document.title = "Ultra Stalker";
   const v = $("#view"); v.innerHTML = "";
-  (views[name] || views.home)(v, parts.slice(1).map(decodeURIComponent));
+  Promise.resolve((views[name] || views.home)(v, parts.slice(1).map(decodeURIComponent))).catch((e) => toast(e.message, true));
 }
 window.addEventListener("hashchange", route);
 
@@ -232,18 +330,20 @@ views.home = (v) => {
   };
   tick(); const iv = setInterval(tick, 15000);
   cleanup = () => { clearInterval(iv); clearInterval(Hero.timer); };
-  bar(S.connected ? S.connected.name : "Ultra Stalker", [["", t("live"), "red"], ["", t("movies"), "green"], ["", t("series"), "yellow"], ["", t("search"), "blue"]], "v" + S.version);
+  bar(S.connected ? S.connected.name : "Ultra Stalker", [["", t("live"), "red", () => go("live")], ["", t("movies"), "green", () => go("movies")], ["", t("series"), "yellow", () => go("series")], ["", t("search"), "blue", () => go("search")]], "v" + S.version);
   if (!S.connected) {
     $("#hero").innerHTML = `<div class="logo"><div class="t">Ultra Stalker</div></div><p>${t("connectFirst")}</p><a class="btn primary" href="#/sources"><i class="ic ic-sources"></i>${t("sources")}</a>`;
     $("#panels").innerHTML = ""; return;
   }
-  homePanels(); Hero.start();
+  const historyRows = api("history", 60);
+  homePanels(historyRows); Hero.start(historyRows);
 };
 
-async function homePanels() {
+async function homePanels(historyRows) {
+  const box = $("#panels");
   let hist = [];
-  try { hist = remember(await api("history", 60)); } catch {}
-  const box = $("#panels"); if (!box) return;
+  try { const rows = await historyRows; if (!box.isConnected) return; hist = remember(rows); } catch {}
+  if (!box.isConnected) return;
   const live = hist.filter((x) => x.kind === "live").slice(0, 5);
   const movies = hist.filter((x) => x.kind === "movies" && x.percent < 97).slice(0, 4);
   const eps = hist.filter((x) => (x.kind === "episode" || x.kind === "series") && x.percent < 97).slice(0, 4);
@@ -268,46 +368,38 @@ async function homePanels() {
     <section class="panel glass"><h3><i class="ic ic-movies"></i>${t("continueMovies")}<a href="#/movies">${t("seeAll")}</a></h3>${media(movies, "movies")}</section>
     <section class="panel glass"><h3><i class="ic ic-series"></i>${t("continueSeries")}<a href="#/series">${t("seeAll")}</a></h3>${media(eps, "series")}</section>`;
   box.onclick = (e) => { const el = e.target.closest("[data-ref]"); if (el) play(el.dataset.ref); };
-  // history keeps only plain artwork links: fill missing movie posters from TMDb in the background
-  for (const x of movies) if (!x.poster) details(x.ref).then((d) => {
-    const pp = d.poster || (d.tmdb || {}).poster; const img = pp && box.querySelector(`.feat[data-ref="${CSS.escape(x.ref)}"] .art`);
-    if (img && !img.querySelector("img")) img.insertAdjacentHTML("beforeend", `<img src="${esc(pp)}" alt="">`);
-  }).catch(() => {});
+  watchPosters(box);
 }
 
-/* featured titles: a slow cross-fading carousel of backdrops */
+/* Feature recent titles without downloading whole catalogs at startup. */
 const Hero = {
   picks: [], i: 0, timer: 0,
-  async start() {
-    this.picks = []; this.i = 0; clearInterval(this.timer);
-    try {
-      const hist = (await api("history", 20)).filter((x) => x.kind === "movies" || x.kind === "series");
-      this.picks.push(...remember(hist.slice(0, 2)));
-      for (const kind of ["movies", "series"]) {
-        if (this.picks.length >= 6) break;
-        const cats = await categories(kind); if (!cats.length) continue;
-        const rows = await items(kind, cats[0].id);
-        const pool = rows.slice(0, 40).sort(() => Math.random() - 0.5).slice(0, kind === "movies" ? 3 : 2);
-        this.picks.push(...pool);
-      }
-    } catch { /* decoration only */ }
-    if (S.route !== "home") return;
-    if (!this.picks.length) { $("#hero").innerHTML = ""; return; }
+  async start(historyRows) {
+    const current = routeId;
+    let rows;
+    try { rows = await historyRows; } catch { rows = []; }
+    if (current !== routeId) return;
+    this.picks = remember(rows.filter((x) => x.kind === "movies" || x.kind === "series").slice(0, 5));
+    this.i = 0;
+    if (!this.picks.length) {
+      $("#hero").innerHTML = `<div class="logo"><div class="t">Ultra Stalker</div></div>`;
+      return;
+    }
     $("#hero-dots").innerHTML = this.picks.map((_, k) => `<button data-k="${k}" aria-label="${k + 1}"></button>`).join("");
     $("#hero-dots").onclick = (e) => { const b = e.target.closest("button"); if (b) { this.show(+b.dataset.k); this.loop(); } };
     this.show(0); this.loop();
   },
   loop() { clearInterval(this.timer); this.timer = setInterval(() => S.route === "home" && this.show((this.i + 1) % this.picks.length), 11000); },
   async show(k) {
+    const current = routeId;
     this.i = k; const x = this.picks[k]; if (!x) return;
     $$("#hero-dots button").forEach((b, n) => b.classList.toggle("on", n === k));
     let d = x; try { d = await details(x.ref); } catch {}
-    if (S.route !== "home" || this.i !== k) return;
+    if (current !== routeId || this.i !== k) return;
     const tm = d.tmdb || {};
     const bd = d.backdrop || tm.backdrop;
-    backdrop(bd || d.poster || tm.poster || "", !bd);
+    backdrop(bd || d.poster || tm.poster || "");
     const hero = $("#hero"); if (!hero) return;
-    hero.classList.remove("in"); void hero.offsetWidth;
     hero.innerHTML = `<div class="eyebrow">${t(x.kind === "series" ? "series" : "movies")}${tm.genres && tm.genres.length ? " · " + esc(tm.genres.slice(0, 2).join(" · ")) : ""}</div>
       <div class="logo">${logoHTML(d, d.title)}</div>
       <div class="meta">${metaChips(d)}${d.rating ? `<span class="chip rate">★ ${esc(d.rating)}</span>` : ""}</div>
@@ -315,7 +407,6 @@ const Hero = {
       <div class="hero-acts"><button class="btn primary" data-a="play"><i class="ic ${x.kind === "series" ? "ic-layers" : "ic-play"}"></i>${x.kind === "series" ? t("seasons") : d.resume ? t("resume") : t("play")}</button>
         <a class="btn" href="#/details/${encodeURIComponent(d.ref)}"><i class="ic ic-info"></i>${t("details")}</a>
         <button class="btn icon ${d.favorite ? "on" : ""}" data-a="fav" title="${t("favorite")}"><i class="ic ic-star"></i></button></div>`;
-    hero.classList.add("in");
     hero.onclick = (e) => {
       const a = e.target.closest("[data-a]")?.dataset.a; if (!a) return;
       if (a === "play") x.kind === "series" ? (location.hash = "#/details/" + encodeURIComponent(x.ref)) : play(x.ref);
@@ -349,12 +440,13 @@ const Grid = {
     $("#cat-btn").onclick = () => this.drawer();
     $("#flt").oninput = debounce((e) => { this.filter = e.target.value.trim().toLowerCase(); this.render(); }, 160);
     const grid = $("#grid");
+    cleanup = () => this.io?.disconnect();
     grid.addEventListener("click", (e) => { const p = e.target.closest(".poster"); if (p) this.select(+p.dataset.i, true); });
     grid.addEventListener("dblclick", (e) => { const p = e.target.closest(".poster"); if (p) this.activate(); });
-    grid.addEventListener("mouseover", debounce((e) => { const p = e.target.closest?.(".poster"); if (p && +p.dataset.i !== this.sel) this.select(+p.dataset.i, false); }, 260));
     this.keys();
     let cats = [];
     try { cats = await categories(kind); } catch (e) { grid.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
+    if (!grid.isConnected) return;
     const remembered = S.cat[kind];
     const cat = cats.find((c) => c.id === remembered) || (remembered === "" ? { id: "", title: t("all") } : null);
     if (cat) this.load(cat); else { grid.innerHTML = ""; this.spotEmpty(); this.drawer(true); }
@@ -364,22 +456,30 @@ const Grid = {
   },
   bar(count) {
     const cat = (S.cats[this.kind] || []).find((c) => c.id === S.cat[this.kind]);
-    bar(cat ? cat.title : t(this.kind), [["Enter", t("details")], ["F", t("keysFav")], ["C", t("keysCats")], ["/", t("keysSearch")]], count || "");
+    bar(cat ? cat.title : t(this.kind), [["Enter", t("details"), "", () => this.activate()], ["F", t("keysFav"), "", () => this.key({ key: "f" })], ["C", t("keysCats"), "", () => this.drawer()], ["/", t("keysSearch"), "", () => go("search")]], count || "");
   },
   drawer(force) {
     const cats = [{ id: "", title: t("all") }, ...(S.cats[this.kind] || [])];
     openDrawer(t("categories") + " · " + t(this.kind), cats, S.cat[this.kind], (c) => this.load(c), force);
   },
   async load(cat) {
-    S.cat[this.kind] = cat.id; $("#cat-name").textContent = cat.title; this.bar();
+    const kind = this.kind;
+    const request = this.request = (this.request || 0) + 1;
+    this.io?.disconnect(); posterObserver.disconnect(); posterQueue.clear();
+    this.rows = []; this.sel = -1; this.spotEmpty();
+    S.cat[kind] = cat.id; $("#cat-name").textContent = cat.title; this.bar();
     const grid = $("#grid"); grid.innerHTML = Array.from({ length: 12 }, () => `<div class="poster"><div class="art skel"></div><div class="cap">&nbsp;</div></div>`).join("");
-    try { this.rows = await items(this.kind, cat.id); } catch (e) { grid.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
-    if (S.route !== this.kind) return;
+    let rows;
+    try { rows = await items(kind, cat.id); } catch (e) { if (grid.isConnected && request === this.request) grid.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
+    if (!grid.isConnected || request !== this.request) return;
+    this.rows = rows;
     this.render(); if (this.list().length) this.select(0, false);
   },
   list() { return this.filter ? this.rows.filter((x) => x.title.toLowerCase().includes(this.filter)) : this.rows; },
   render() {
-    const grid = $("#grid"); const L = this.list(); this.shown = 0; this.sel = -1; grid.innerHTML = "";
+    const grid = $("#grid"); const L = this.list();
+    this.io?.disconnect(); posterObserver.disconnect(); posterQueue.clear();
+    this.shown = 0; this.sel = -1; grid.innerHTML = "";
     if (!L.length) { grid.innerHTML = `<div class="empty"><b>${this.rows.length ? t("noResults") : t("emptyCat")}</b></div>`; this.spotEmpty(); this.bar("0"); return; }
     this.more(); this.bar(`${L.length} ${t("items")}`);
     if (this.io) this.io.disconnect();
@@ -388,10 +488,13 @@ const Grid = {
   },
   more() {
     const grid = $("#grid"); const L = this.list(); if (this.shown >= L.length) return;
-    const end = Math.min(L.length, this.shown + 90); let html = "";
+    const end = Math.min(L.length, this.shown + 36); let html = "";
     for (let i = this.shown; i < end; i++) html += posterHTML(L[i]).replace('class="poster"', `class="poster" data-i="${i}"`);
     const frag = document.createRange().createContextualFragment(html);
-    const s = $("#sentinel", grid); s ? grid.insertBefore(frag, s) : grid.appendChild(frag); this.shown = end;
+    const cards = [...frag.children];
+    const s = $("#sentinel", grid); s ? grid.insertBefore(frag, s) : grid.appendChild(frag);
+    if (window.qt?.webChannelTransport) cards.filter((card) => !$(".art img", card)).forEach((card) => posterObserver.observe(card));
+    this.shown = end;
   },
   cols() { const g = $("#grid"); const first = $(".poster", g); if (!first) return 1; const w = first.getBoundingClientRect().width + 16; return Math.max(1, Math.floor((g.clientWidth + 16) / w)); },
   select(i, scroll) {
@@ -407,7 +510,7 @@ const Grid = {
     const s = $("#spot"); if (!s) return;
     const draw = (d) => {
       const tm = d.tmdb || {};
-      const bd = d.backdrop || tm.backdrop; bd ? s.style.setProperty("--spot-bd", `url("${bd}")`) : s.style.removeProperty("--spot-bd");
+      const bd = d.backdrop || tm.backdrop; bd ? s.style.setProperty("--spot-bd", `url(${JSON.stringify(artUrl(bd))})`) : s.style.removeProperty("--spot-bd");
       s.innerHTML = `<div class="logo">${logoHTML(d, d.title)}</div>
         <div class="meta">${metaChips(d)}</div>
         ${tm.genres && tm.genres.length ? `<div class="genres">${tm.genres.map((g) => `<span>${esc(g)}</span>`).join("")}</div>` : ""}
@@ -430,7 +533,7 @@ const Grid = {
       };
     };
     s.classList.add("loading"); draw(Object.assign({}, x, S.view.get(x.ref)));
-    try { const d = await details(x.ref); if (this.list()[this.sel] === x) { s.classList.remove("loading"); draw(d); } } catch { s.classList.remove("loading"); }
+    try { const d = await details(x.ref); if (s.isConnected && this.list()[this.sel] === x) { s.classList.remove("loading"); draw(d); } } catch { s.classList.remove("loading"); }
   },
   key(e) {
     const L = this.list(); if (!L.length) return false; const c = this.cols(); let i = this.sel < 0 ? 0 : this.sel;
@@ -473,6 +576,7 @@ const Live = {
   cat: null, rows: [], filter: "", sel: null, epgTimer: null, previewOn: false,
   async open(v) {
     if (needConnection()) return;
+    this.sel = null; this.rows = []; this.cats = [];
     document.body.classList.add("dim"); backdrop("");
     v.appendChild(h(`<section class="live3">
       <div class="col"><div class="col-h"><h2>${t("categories")}</h2><span class="count" id="cat-count"></span></div><div class="list" id="lcats"><div class="spinner"></div></div></div>
@@ -482,7 +586,7 @@ const Live = {
         <div class="preview" id="pv"><div class="idle"><div><b>${t("pickChannel")}</b></div></div></div>
         <div class="nownext glass" id="nn"></div>
       </div></section>`));
-    cleanup = () => { this.stopPreview(); clearInterval(this.epgTimer); window.removeEventListener("resize", this.onResize); };
+    cleanup = () => { this.playing = false; this.stopPreview(); clearInterval(this.epgTimer); window.removeEventListener("resize", this.onResize); };
     window.addEventListener("resize", this.onResize);
     $("#lflt").oninput = debounce((e) => { this.filter = e.target.value.trim().toLowerCase(); this.drawChannels(); }, 140);
     $("#lch").addEventListener("click", (e) => { const r = e.target.closest(".row"); if (r) this.select(r.dataset.ref); });
@@ -490,8 +594,10 @@ const Live = {
     $("#lcats").addEventListener("click", (e) => { const r = e.target.closest(".row"); if (r) this.load(r.dataset.id); });
     $("#pv").addEventListener("dblclick", () => this.sel && play(this.sel));
     this.drawNN(null);
+    const target = $("#lcats");
     let cats;
-    try { cats = await categories("live"); } catch (e) { $("#lcats").innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
+    try { cats = await categories("live"); } catch (e) { target.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
+    if (!target.isConnected) return;
     this.cats = [{ id: "", title: t("all") }, ...cats];
     $("#cat-count").textContent = cats.length;
     $("#lcats").innerHTML = this.cats.map((c, i) => `<div class="row" data-id="${esc(c.id)}"><span class="n">${i + 1}</span><span class="t">${esc(c.title)}</span></div>`).join("");
@@ -500,46 +606,72 @@ const Live = {
   },
   onResize: debounce(() => Live.sendRect(), 60),
   async load(id) {
+    const request = this.request = (this.request || 0) + 1;
+    this.stopPreview(); clearInterval(this.epgTimer);
+    this.sel = null; this.rows = []; this.drawNN(null);
+    $("#pv").classList.remove("native");
+    $("#pv").innerHTML = `<div class="idle"><b>${t("pickChannel")}</b></div>`;
     S.cat.live = id; this.filter = ""; const fl = $("#lflt"); if (fl) fl.value = "";
     $$("#lcats .row").forEach((r) => r.classList.toggle("on", r.dataset.id === id));
     $("#lcats .row.on")?.scrollIntoView({ block: "nearest" });
     const c = this.cats.find((x) => x.id === id); $("#lcat-name").textContent = c ? c.title : t("channels");
-    $("#lch").innerHTML = `<div class="spinner"></div>`;
-    try { this.rows = await items("live", id); } catch (e) { $("#lch").innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
-    if (S.route !== "live" || S.cat.live !== id) return;
+    const target = $("#lch");
+    target.onscroll = null;
+    target.innerHTML = `<div class="spinner"></div>`;
+    let rows;
+    try { rows = await items("live", id); } catch (e) { if (request === this.request) target.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
+    if (!target.isConnected || request !== this.request) return;
+    this.rows = rows;
     this.drawChannels();
-    bar(c ? c.title : t("live"), [["Enter", t("keysPlay")], ["F", t("keysFav")], ["↑↓", t("channels")], ["/", t("keysSearch")]], `${this.rows.length} ${t("channels")}`);
+    bar(c ? c.title : t("live"), [["Enter", t("keysPlay"), "", () => play(this.sel)], ["F", t("keysFav"), "", () => this.key({ key: "f" })], ["↑↓", t("channels")], ["/", t("keysSearch"), "", () => go("search")]], `${this.rows.length} ${t("channels")}`);
   },
   list() { return this.filter ? this.rows.filter((x) => x.title.toLowerCase().includes(this.filter)) : this.rows; },
   drawChannels() {
-    const L = this.list(); $("#ch-count").textContent = L.length;
-    $("#lch").innerHTML = L.length ? L.map((x, i) => `<div class="row ch ${x.ref === this.sel ? "on" : ""}" data-ref="${esc(x.ref)}"><span class="n">${esc(x.number || i + 1)}</span>
+    const target = $("#lch"), rows = this.list();
+    $("#ch-count").textContent = rows.length;
+    target.innerHTML = "";
+    this.channelRows = rows;
+    this.channelCount = 0;
+    if (!rows.length) { target.onscroll = null; target.innerHTML = `<div class="empty"><b>${t("emptyCat")}</b></div>`; return; }
+    target.onscroll = () => {
+      if (target.scrollHeight - target.scrollTop - target.clientHeight < 400) this.moreChannels();
+    };
+    this.moreChannels();
+  },
+  moreChannels(until = this.channelCount + 80) {
+    const rows = this.channelRows;
+    const end = Math.min(rows.length, until);
+    if (end <= this.channelCount) return;
+    $("#lch").insertAdjacentHTML("beforeend", rows.slice(this.channelCount, end).map((x, i) => `<div class="row ch ${x.ref === this.sel ? "on" : ""}" data-ref="${esc(x.ref)}"><span class="n">${esc(x.number || this.channelCount + i + 1)}</span>
       <span class="logo">${x.poster ? imgTag(x) : esc(initials(x.title).slice(0, 3))}</span>
-      <span class="t">${esc(x.title)}</span>${x.epg ? `<span class="epg">EPG</span>` : ""}</div>`).join("") : `<div class="empty"><b>${t("emptyCat")}</b></div>`;
+      <span class="t">${esc(x.title)}</span>${x.epg ? `<span class="epg">EPG</span>` : ""}</div>`).join(""));
+    this.channelCount = end;
   },
   select(ref) {
-    if (!ref) return; this.sel = ref; const x = S.view.get(ref);
+    if (!ref || this.sel === ref) return;
+    this.stopPreview(); this.sel = ref; const x = S.view.get(ref);
     $$("#lch .row").forEach((r) => r.classList.toggle("on", r.dataset.ref === ref));
     $(`#lch .row[data-ref="${CSS.escape(ref)}"]`)?.scrollIntoView({ block: "nearest" });
     this.drawNN(x); this.loadEpg(ref);
     clearInterval(this.epgTimer); this.epgTimer = setInterval(() => this.sel && this.loadEpg(this.sel), 60000);
-    if (S.settings.live_preview !== false) this.preview(ref);
-    else $("#pv").innerHTML = `<div class="idle"><div>${x.poster ? `<img src="${esc(x.poster)}" alt="">` : ""}<b>${esc(x.title)}</b><div>${t("previewOff")}</div></div></div>`;
+    if (S.settings.live_preview === true) this.preview(ref);
+    else $("#pv").innerHTML = `<div class="idle"><div>${x.poster ? `<img src="${esc(artUrl(x.poster))}" alt="">` : ""}<b>${esc(x.title)}</b><div>${t("previewOff")}</div></div></div>`;
   },
   rect() { const r = $("#pv")?.getBoundingClientRect(); return r ? { x: Math.round(r.left + 3), y: Math.round(r.top + 3), w: Math.round(r.width - 6), h: Math.round(r.height - 6) } : null; },
   sendRect() { if (Live.previewOn && S.route === "live") api("ui_preview_rect", Live.rect()); },
   preview: debounce(async function (ref) {
-    if (S.route !== "live" || Live.sel !== ref) return;
+    if (S.route !== "live" || Live.sel !== ref || S.settings.live_preview !== true || Live.playing) return;
     const x = S.view.get(ref); const pv = $("#pv");
-    pv.classList.add("native"); pv.innerHTML = `<div class="idle"><div>${x.poster ? `<img src="${esc(x.poster)}" alt="">` : ""}<div class="spinner" style="margin:6px auto"></div></div></div>`;
-    try { Live.previewOn = true; await api("preview", ref, Live.rect()); } catch (e) { Live.previewFailed(e.message); }
+    pv.classList.add("native"); pv.innerHTML = `<div class="idle"><div>${x.poster ? `<img src="${esc(artUrl(x.poster))}" alt="">` : ""}<div class="spinner" style="margin:6px auto"></div></div></div>`;
+    const current = routeId;
+    try { Live.previewOn = true; await api("preview", ref, Live.rect()); } catch (e) { if (current === routeId && Live.sel === ref && Live.previewOn) Live.previewFailed(e.message); }
   }, 350),
   previewFailed(msg) {
     this.previewOn = false; const pv = $("#pv"); if (!pv) return; pv.classList.remove("native");
     pv.innerHTML = `<div class="idle"><div><b>${esc(msg || "")}</b></div></div>`;
   },
   stopPreview() { if (this.previewOn) { this.previewOn = false; api("ui_stop_preview").catch(() => {}); } },
-  rearm() { if (this.sel && S.settings.live_preview !== false) this.preview(this.sel); },
+  rearm() { if (this.sel && S.settings.live_preview === true) this.preview(this.sel); },
   async loadEpg(ref) {
     let e; try { e = await api("epg", ref); } catch { return; }
     if (this.sel !== ref) return; this.drawNN(S.view.get(ref), e);
@@ -559,13 +691,13 @@ const Live = {
       <div class="acts" style="margin-top:12px">
         <button class="btn primary" data-a="play"><i class="ic ic-full"></i>${t("fullscreen")}</button>
         <button class="btn ${x.favorite ? "on" : ""}" data-a="fav"><i class="ic ic-star"></i>${t("favorite")}</button>
-        <button class="btn ${S.settings.live_preview !== false ? "on-prev" : ""}" data-a="prev"><i class="ic ic-live"></i>${S.settings.live_preview !== false ? t("previewStop") : t("previewStart")}</button>
+        <button class="btn ${S.settings.live_preview === true ? "on-prev" : ""}" data-a="prev"><i class="ic ic-live"></i>${S.settings.live_preview === true ? t("previewStop") : t("previewStart")}</button>
       </div>`;
     nn.onclick = (ev) => {
       const a = ev.target.closest("[data-a]")?.dataset.a; if (!a) return;
       if (a === "play") play(x.ref); if (a === "fav") toggleFav(x.ref, ev.target.closest(".btn"));
       if (a === "prev") {
-        const on = S.settings.live_preview === false;
+        const on = S.settings.live_preview !== true;
         api("settings_save", { live_preview: on }).then((r) => Object.assign(S.settings, r)).catch(() => {});
         S.settings.live_preview = on;
         if (on) this.preview(x.ref); else { this.stopPreview(); $("#pv").classList.remove("native"); $("#pv").innerHTML = `<div class="idle"><div>${x.poster ? imgTag(x) : ""}<b>${esc(x.title)}</b><div>${t("previewOff")}</div></div></div>`; }
@@ -580,7 +712,7 @@ const Live = {
     else if (e.key === "Enter") { if (this.sel) play(this.sel); return true; }
     else if (e.key === "f" || e.key === "F") { toggleFav(this.sel, $("#nn [data-a=fav]")); return true; }
     else return false;
-    this.select(L[Math.max(0, i)].ref); return true;
+    this.moreChannels(i + 1); this.select(L[Math.max(0, i)].ref); return true;
   },
 };
 
@@ -591,11 +723,11 @@ views.details = async (v, [ref]) => {
   if (!x) { history.back(); return; }
   const page = h(`<section class="det"><button class="btn icon back" onclick="history.back()"><i class="ic ic-back"></i></button><div id="det-body"><div class="spinner"></div></div></section>`);
   v.appendChild(page);
-  bar(x.title, [["Esc", t("keysBack")], ["Enter", t("keysPlay")], ["F", t("keysFav")]], "");
+  bar(x.title, [["Esc", t("keysBack"), "", goBack], ["Enter", t("keysPlay"), "", () => page.querySelector(".actions .primary")?.click()], ["F", t("keysFav"), "", () => page.querySelector(".actions [data-a=fav]")?.click()]], "");
   const draw = (d) => {
     const tm = d.tmdb || {};
     const bd = d.backdrop || tm.backdrop;
-    backdrop(bd || d.poster || tm.poster || "", !bd);
+    backdrop(bd || d.poster || tm.poster || "");
     $("#det-body").innerHTML = `<div class="det-top">
         <div>${posterHTML(Object.assign({}, d, { poster: d.poster || tm.poster }))}</div>
         <div>
@@ -613,6 +745,7 @@ views.details = async (v, [ref]) => {
       </div>
       ${(tm.cast || []).length ? `<div class="block"><h3>${t("cast")}</h3><div class="cast">${castHTML(tm, 10)}</div></div>` : ""}
       ${x.kind === "series" ? `<div class="block" id="seasons-box"><h3>${t("seasons")}</h3><div class="spinner"></div></div>` : ""}`;
+    watchPosters(page);
     $("#det-body").onclick = (e) => {
       const a = e.target.closest("[data-a]")?.dataset.a; if (!a) return;
       if (a === "play") play(ref); if (a === "start") play(ref, true);
@@ -622,8 +755,8 @@ views.details = async (v, [ref]) => {
     };
   };
   draw(x);
-  try { draw(await details(ref)); } catch (e) { toast(e.message, true); }
-  if (x.kind === "series") Seasons.load(ref);
+  try { const data = await details(ref); if (page.isConnected) draw(data); } catch (e) { if (page.isConnected) toast(e.message, true); }
+  if (page.isConnected && x.kind === "series") Seasons.load(ref);
 };
 const Seasons = {
   next: null, data: null, cur: 0,
@@ -652,14 +785,14 @@ views.search = (v, [q0]) => {
   if (needConnection()) return;
   document.body.classList.add("dim"); backdrop("");
   v.appendChild(h(`<section class="std"><div class="std-head"><div class="search-box"><i class="ic ic-search"></i><input class="input" id="q" placeholder="${t("searchAll")}" value="${esc(q0 || "")}"></div></div><div id="res"></div></section>`));
-  bar(t("search"), [["Enter", t("search")], ["Esc", t("keysBack")]], "");
+  bar(t("search"), [["Enter", t("search"), "", () => run($("#q").value.trim())], ["Esc", t("keysBack"), "", goBack]], "");
   let token = 0;
   const run = async (q) => {
     const my = ++token; const res = $("#res");
     if (q.length < 2) { res.innerHTML = ""; return; }
     res.innerHTML = `<div class="spinner"></div>`;
     let r; try { r = await api("search", q); } catch (e) { res.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
-    if (my !== token) return; Object.values(r).forEach(remember);
+    if (my !== token || !res.isConnected) return; Object.values(r).forEach(remember);
     const total = r.live.length + r.movies.length + r.series.length;
     if (!total) { res.innerHTML = `<div class="empty"><b>${t("noResults")}</b></div>`; return; }
     res.innerHTML = [
@@ -667,9 +800,10 @@ views.search = (v, [q0]) => {
       r.movies.length ? `<section class="shelf" style="margin-top:22px"><h3>${t("movies")} <span class="muted">${r.movies.length}</span></h3><div class="res-grid">${r.movies.map((x) => posterHTML(x)).join("")}</div></section>` : "",
       r.series.length ? `<section class="shelf" style="margin-top:22px"><h3>${t("series")} <span class="muted">${r.series.length}</span></h3><div class="res-grid">${r.series.map((x) => posterHTML(x)).join("")}</div></section>` : "",
     ].join("");
-    bar(t("search"), [["Esc", t("keysBack")]], `${total} ${t("items")}`);
+    watchPosters(res);
+    bar(t("search"), [["Enter", t("search"), "", () => run($("#q").value.trim())], ["Esc", t("keysBack"), "", goBack]], `${total} ${t("items")}`);
   };
-  const q = $("#q"); q.oninput = debounce((e) => run(e.target.value.trim()), 380); q.focus(); if (q0) run(q0);
+  const q = $("#q"); q.oninput = debounce((e) => { if (q.isConnected) run(e.target.value.trim()); }, 380); q.onkeydown = (e) => { if (e.key === "Enter") run(q.value.trim()); }; q.focus(); if (q0) run(q0);
   $("#res").onclick = (e) => { const el = e.target.closest("[data-ref]"); if (!el) return; const x = S.view.get(el.dataset.ref); x.kind === "live" ? play(x.ref) : (location.hash = "#/details/" + encodeURIComponent(x.ref)); };
 };
 
@@ -681,12 +815,15 @@ views.favorites = async (v, [tab]) => {
   v.appendChild(h(`<section class="std"><div class="std-head"><h1 class="h-title">${t("favorites")}</h1>
     <div class="tabs" style="margin-inline-start:auto">${["live", "movies", "series"].map((k) => `<button data-k="${k}" class="${k === tab ? "on" : ""}">${t(k)}</button>`).join("")}</div></div><div id="fv"><div class="spinner"></div></div></section>`));
   $(".tabs").onclick = (e) => { const b = e.target.closest("button"); if (b) location.hash = "#/favorites/" + b.dataset.k; };
-  let f; try { f = await api("favorites"); } catch (e) { $("#fv").innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
+  const target = $("#fv");
+  let f; try { f = await api("favorites"); } catch (e) { target.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
+  if (!target.isConnected) return;
   Object.values(f).forEach(remember); const rows = f[tab] || [];
-  bar(t("favorites"), [["Esc", t("keysBack")]], `${rows.length} ${t("items")}`);
+  bar(t("favorites"), [["Esc", t("keysBack"), "", goBack]], `${rows.length} ${t("items")}`);
   $("#fv").innerHTML = !rows.length ? `<div class="empty"><i class="ic ic-star" style="width:44px;height:44px;color:var(--gold)"></i><b>${t("empty")}</b></div>`
     : tab === "live" ? `<div class="res-live">${rows.map((x) => `<div class="row ch" data-ref="${esc(x.ref)}"><span class="logo">${x.poster ? imgTag(x) : esc(initials(x.title).slice(0, 3))}</span><span class="t">${esc(x.title)}</span><span class="fav"><i class="ic ic-star-fill"></i></span></div>`).join("")}</div>`
     : `<div class="res-grid">${rows.map((x) => posterHTML(x)).join("")}</div>`;
+  watchPosters($("#fv"));
   $("#fv").onclick = (e) => { const el = e.target.closest("[data-ref]"); if (!el) return; const x = S.view.get(el.dataset.ref); x.kind === "live" || x.kind === "episode" ? play(x.ref) : (location.hash = "#/details/" + encodeURIComponent(x.ref)); };
 };
 
@@ -700,14 +837,62 @@ views.sources = (v) => {
     <div class="sources-head">
       <div class="brand-mark"><svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#35d39b"/><stop offset="1" stop-color="#e0464f"/></linearGradient></defs><rect x="3" y="3" width="42" height="42" rx="13" fill="none" stroke="url(#lg2)" stroke-width="3"/><path d="M17 15v12a7 7 0 0 0 14 0V15" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><circle cx="24" cy="36.5" r="2.3" fill="#35d39b"/></svg></div>
       <div><div class="eyebrow">Ultra Stalker</div><h1 class="h-title">${first ? t("welcome") : t("yourSources")}</h1><div class="muted">${first ? t("welcomeSub") : t("sourcesSub")}</div></div>
-      ${first ? "" : `<button class="btn primary" style="margin-inline-start:auto" id="add"><i class="ic ic-plus"></i>${t("addSource")}</button>`}
+      <a class="btn" href="#/cloud" style="margin-inline-start:auto">${t("cloud")}</a>
+      ${first ? "" : `<button class="btn primary" id="add"><i class="ic ic-plus"></i>${t("addSource")}</button>`}
     </div>
     <div class="${first ? "type-grid" : "src-grid"}" id="srcs"></div>
     <p class="vault-note"><i class="ic ic-lock"></i>${t("sourcesSub")}</p>
   </section>`));
-  bar(t("sources"), [["Enter", t("connect")]], first ? "" : `${S.profiles.length}`);
+  bar(t("sources"), [["", t("addSource"), "green", () => sourceForm()], ["", t("cloud"), "blue", () => go("cloud")]], first ? "" : `${S.profiles.length}`);
   $("#add")?.addEventListener("click", () => sourceForm());
   first ? drawTypes() : drawSources();
+};
+views.cloud = (v, [type, server]) => {
+  const kind = type === "xtream" ? "xtream" : "portal";
+  const target = h(`<section class="std"><div class="std-head">
+    <a class="btn" href="#/${server ? "cloud/" + kind : "sources"}">${t("keysBack")}</a>
+    <h1 class="h-title">${t("cloud")}</h1>
+    <div class="tabs"><a class="btn ${kind === "portal" ? "on" : ""}" href="#/cloud/portal">Stalker</a><a class="btn ${kind === "xtream" ? "on" : ""}" href="#/cloud/xtream">Xtream</a></div>
+  </div><h3>${t(server ? "cloudAccounts" : "cloudServers")}</h3><div class="cloud-list"></div>
+  <p class="cloud-status" role="status"></p><button class="btn" type="button" hidden>${t("more")}</button></section>`);
+  v.appendChild(target);
+  const list = $(".cloud-list", target);
+  const status = $(".cloud-status", target);
+  const more = $("button", target);
+  let after = null;
+  async function load() {
+    more.disabled = true;
+    status.textContent = t("loading");
+    try {
+      const data = await api("cloud_page", kind, server || null, after);
+      if (!target.isConnected) return;
+      for (const row of data.items) {
+        const entry = h(`<button class="btn" type="button">${esc(row.label)}${row.expiry ? " · " + esc(row.expiry) : ""}</button>`);
+        entry.onclick = async () => {
+          if (!server) { go(`cloud/${kind}/${row.id}`); return; }
+          if (list.inert) return;
+          list.inert = true;
+          status.textContent = t("connecting");
+          try {
+            const connection = await api("cloud_connect", kind, server, row.id, row.label);
+            connectedTo(connection);
+            if (target.isConnected) go("home");
+          } catch (e) { status.textContent = e.message; }
+          finally { list.inert = false; }
+        };
+        list.appendChild(entry);
+      }
+      after = data.next;
+      more.hidden = !after;
+      status.textContent = list.children.length ? "" : t("empty");
+    } catch (e) {
+      status.textContent = e.message;
+      more.hidden = false;
+    } finally { more.disabled = false; }
+  }
+  more.onclick = load;
+  bar(t("cloud"), [["Esc", t("keysBack"), "", goBack]], "");
+  load();
 };
 function drawTypes() {
   const g = $("#srcs");
@@ -751,10 +936,11 @@ function askConfirm(title, detail, okLabel) {
   });
 }
 function connectedTo(c) {
-  S.connected = c; S.cats = {}; S.cat = {}; S.items.clear(); S.det.clear(); S.view.clear();
+  S.source++; posterRequests.clear();
+  S.connected = c; S.cats = {}; S.cat = {}; S.items = new Map(); S.det.clear(); S.view.clear();
   S.profiles.forEach((p) => (p.active = p.name === c.name)); toast(t("connected") + " · " + c.name);
 }
-function disconnected() { S.connected = null; S.cats = {}; S.items.clear(); }
+function disconnected() { S.source++; S.connected = null; S.cats = {}; S.items = new Map(); S.det.clear(); S.view.clear(); posterRequests.clear(); }
 function sourceForm(p, preset) {
   const edit = !!p; p = p || { type: preset || "stalker", name: "", url: "", mac: "00:1A:79:", username: "" };
   let type = p.type;
@@ -830,7 +1016,7 @@ views.settings = (v) => {
     </div>
     <div class="set-card glass keys">
       <h3><i class="ic ic-info"></i>${t("shortcuts")}</h3>
-      <ul>${[["Enter", t("keysPlay")], ["Esc", t("keysBack")], ["F", t("keysFav")], ["C", t("keysCats")], ["/", t("keysSearch")], ["F11", t("keysFull")], ["Space", t("pauseKey")], ["← →", t("seekKey")]].map(([k, l]) => `<li><kbd>${k}</kbd><span>${l}</span></li>`).join("")}</ul>
+      <ul>${[["Enter", t("keysPlay")], ["Esc", t("keysBack"), "", goBack], ["F", t("keysFav")], ["C", t("keysCats")], ["/", t("keysSearch")], ["F11", t("keysFull")], ["Space", t("pauseKey")], ["← →", t("seekKey")]].map(([k, l]) => `<li><kbd>${k}</kbd><span>${l}</span></li>`).join("")}</ul>
     </div>
     <div class="set-card glass about">
       <h3><i class="ic ic-info"></i>${t("about")}</h3>
@@ -838,43 +1024,48 @@ views.settings = (v) => {
       <div>${t("design")}: <b>${esc(S.author)}</b></div>
     </div>
   </div></section>`));
-  bar(t("settings"), [["Esc", t("keysBack")]], "v" + S.version);
-  const cur = { ui_language: LANG, tmdb_language: st.tmdb_language || LANG, player: st.player || "mpv", live_preview: String(st.live_preview !== false), autoplay_next: String(st.autoplay_next !== false) };
+  bar(t("settings"), [["Esc", t("keysBack"), "", goBack]], "v" + S.version);
+  const cur = { ui_language: LANG, tmdb_language: st.tmdb_language || LANG, player: st.player || "mpv", live_preview: String(st.live_preview === true), autoplay_next: String(st.autoplay_next !== false) };
   $$("[data-set]").forEach((g) => {
     const k = g.dataset.set; $$("button", g).forEach((b) => b.classList.toggle("on", b.dataset.v === cur[k]));
     g.onclick = async (e) => {
       const b = e.target.closest("button"); if (!b) return; let val = b.dataset.v; if (val === "true" || val === "false") val = val === "true";
-      try { const r = await api("settings_save", { [k]: val }); Object.assign(S.settings, r); S.det.clear(); toast(t("saved")); } catch (er) { toast(er.message, true); return; }
+      try { const r = await api("settings_save", { [k]: val }); Object.assign(S.settings, r); S.det.clear(); posterRequests.clear(); toast(t("saved")); } catch (er) { toast(er.message, true); return; }
       if (k === "ui_language") { LANG = val; applyLang(); }
       route();
     };
   });
-  $("#savekey").onclick = async () => { try { const r = await api("settings_save", { tmdb_api_key: $("#tmdbkey").value }); S.hasKey = r.has_tmdb_key; S.det.clear(); toast(t("saved")); route(); } catch (er) { toast(er.message, true); } };
+  $("#savekey").onclick = async () => { try { const r = await api("settings_save", { tmdb_api_key: $("#tmdbkey").value }); S.hasKey = r.has_tmdb_key; S.det.clear(); posterRequests.clear(); toast(t("saved")); route(); } catch (er) { toast(er.message, true); } };
   $(".set-grid").addEventListener("click", async (e) => {
     const a = e.target.closest("[data-a]")?.dataset.a; if (!a) return;
     if (a === "disconnect") { try { await api("disconnect"); disconnected(); toast(t("disconnected")); location.hash = "#/sources"; } catch (er) { toast(er.message, true); } }
-    if (a === "clearcache") { try { await api("clear_cache"); S.cats = {}; S.items.clear(); S.det.clear(); toast(t("cacheCleared")); } catch (er) { toast(er.message, true); } }
+    if (a === "clearcache") { try { await api("clear_cache"); S.cats = {}; S.items = new Map(); S.det.clear(); posterRequests.clear(); toast(t("cacheCleared")); } catch (er) { toast(er.message, true); } }
   });
 };
 
 /* ------------------------------------------------------------------ actions */
 async function play(ref, fromStart) {
   if (!ref) return; toast(t("starting"));
-  if (S.route === "live") Live.stopPreview();
-  try { await api("play", ref, !!fromStart); } catch (e) { toast(e.message, true); if (S.route === "live") Live.rearm(); }
+  const live = S.route === "live";
+  if (live) { Live.playing = true; Live.stopPreview(); }
+  try { await api("play", ref, !!fromStart); } catch (e) {
+    toast(e.message, true);
+    if (live) { Live.playing = false; if (S.route === "live") Live.rearm(); }
+  }
 }
 async function toggleFav(ref, btn) {
   if (!ref) return;
   try {
     const r = await api("favorite", ref); const x = S.view.get(ref); if (x) x.favorite = r.favorite;
-    const d = S.det.get(ref); if (d) d.then((v) => (v.favorite = r.favorite));
+    const d = S.det.get(ref); if (d) d.then((v) => (v.favorite = r.favorite)).catch(() => {});
     if (btn) btn.classList.toggle("on", r.favorite); toast(r.favorite ? t("favAdded") : t("favRemoved"));
   } catch (e) { toast(e.message, true); }
 }
 
 /* ------------------------------------------------------------------ keyboard */
 document.addEventListener("keydown", (e) => {
-  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "");
+  const activeTag = document.activeElement?.tagName || "";
+  const typing = /INPUT|TEXTAREA|SELECT/.test(activeTag);
   if (e.key === "Escape") {
     if ($(".modal-wrap")) { const c = $(".modal-wrap [data-v='0']"); c ? c.click() : $(".modal-wrap").remove(); return; }
     if (!$("#drawer").hidden) { closeDrawer(); return; }
@@ -882,13 +1073,15 @@ document.addEventListener("keydown", (e) => {
     if (S.route !== "home") history.length > 1 ? history.back() : (location.hash = "#/home");
     return;
   }
-  if (typing || $(".modal-wrap") || !$("#drawer").hidden) return;
+  if (typing || $(".modal-wrap") || !$("#drawer").hidden || (e.key === "Enter" && /BUTTON|A/.test(activeTag))) return;
   if (e.key === "/" || (e.ctrlKey && e.key.toLowerCase() === "f")) { e.preventDefault(); location.hash = "#/search"; return; }
   if (e.key === "F11") { e.preventDefault(); api("ui_fullscreen"); return; }
   if (e.key === "Backspace") { e.preventDefault(); history.back(); return; }
   let used = false;
   if (S.route === "movies" || S.route === "series") used = Grid.key(e);
   else if (S.route === "live") used = Live.key(e);
+  else if (S.route === "details" && e.key === "Enter") { $(".det .actions .primary")?.click(); used = true; }
+  else if (S.route === "details" && e.key.toLowerCase() === "f") { $(".det [data-a=fav]")?.click(); used = true; }
   if (used) e.preventDefault();
 });
 document.addEventListener("contextmenu", (e) => { if (!/INPUT/.test(e.target.tagName)) e.preventDefault(); });
@@ -902,11 +1095,11 @@ async function boot() {
   const last = S.settings.last_profile;
   if (!S.connected && last && S.profiles.some((p) => p.name === last)) {
     $("#sp-msg").textContent = `${t("connecting")} ${last}`;
-    try { connectedTo(await api("connect", last)); } catch (e) { toast(e.message, true); location.hash = "#/sources"; route(); return; }
-    location.hash = "#/home"; route(); return;
+    try { connectedTo(await api("connect", last)); } catch (e) { toast(e.message, true); if (location.hash === "#/sources") route(); else go("sources"); return; }
+    if (location.hash === "#/home") route(); else go("home"); return;
   }
-  if (!location.hash || location.hash === "#/") location.hash = S.connected || S.profiles.length ? "#/" + (S.connected ? "home" : "sources") : "#/sources";
-  route();
+  if (!location.hash || location.hash === "#/") go(S.connected ? "home" : "sources");
+  else route();
 }
 function start(bridge) {
   BR = bridge; BR.reply.connect(onReply); BR.push.connect(onPush);

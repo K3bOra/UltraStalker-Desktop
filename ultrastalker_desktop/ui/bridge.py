@@ -15,11 +15,13 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlsplit
 
 from PySide6.QtCore import QObject, Signal, Slot
 
 from ultrastalker_desktop import __version__, AUTHOR
 from ultrastalker_desktop.core.adapters import make_adapter
+from ultrastalker_desktop.core import cloud_catalog
 from ultrastalker_desktop.core.models import MediaItem, Profile, profile_identity
 from ultrastalker_desktop.storage import database as db
 from ultrastalker_desktop.storage.profiles import delete_profile, load_profiles, save_profile
@@ -57,6 +59,10 @@ class Bridge(QObject):
         self.host = host
         self.adapter_factory = adapter_factory
         self.pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="us-bridge")
+        self.metadata_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="us-tmdb")
+        self.catalog_request = 0
+        self.preview_request = 0
+        self.play_request = 0
         self.adapter = None
         self.profile: Profile | None = None
         self.source_key = ""
@@ -103,6 +109,8 @@ class Bridge(QObject):
             rid = msg.get("id")
             name = str(msg.get("method") or "")
             args = msg.get("args") or []
+            if not isinstance(args, list):
+                return
         except Exception:
             return
         fn = getattr(self, "api_" + name, None)
@@ -117,17 +125,28 @@ class Bridge(QObject):
                 self._answer(rid, False, self._safe_error(exc))
             return
 
+        if name in ("items", "preview", "play"):
+            counter = {"items": "catalog_request", "preview": "preview_request", "play": "play_request"}[name]
+            request = getattr(self, counter) + 1
+            setattr(self, counter, request)
+            if name == "play" and len(args) == 1:
+                args.append(False)
+            if name == "items" and len(args) == 1:
+                args.append("")
+            args.append(request)
+
         def task():
             try:
                 self._answer(rid, True, fn(*args))
             except Exception as exc:
                 self._answer(rid, False, self._safe_error(exc))
 
-        self.pool.submit(task)
+        pool = self.metadata_pool if name in ("poster", "details") else self.pool
+        pool.submit(task)
 
     @staticmethod
     def _safe_error(exc) -> str:
-        if isinstance(exc, BridgeError):
+        if isinstance(exc, (BridgeError, cloud_catalog.CatalogError)):
             return str(exc)
         text = sanitize_text(str(exc) or "").strip()
         log.warning("Bridge action failed: %s", type(exc).__name__)
@@ -137,6 +156,7 @@ class Bridge(QObject):
         self.closing = True
         self.generation += 1
         self.pool.shutdown(wait=False, cancel_futures=True)
+        self.metadata_pool.shutdown(wait=False, cancel_futures=True)
 
     # ------------------------------------------------------------------ items
     def _ref(self, item: MediaItem) -> str:
@@ -205,6 +225,24 @@ class Bridge(QObject):
         return lambda: self.closing or generation != self.generation
 
     # ------------------------------------------------------------------ app
+    def artwork_context(self, url):
+        adapter = self.adapter
+        inner = getattr(adapter, "inner", adapter)
+        source = self.source_key
+        if inner is None or not hasattr(inner, "_headers") or not hasattr(inner, "base"):
+            return None, ""
+        try:
+            target, portal = urlsplit(url), urlsplit(inner.base)
+            if target.username is not None:
+                return None, ""
+            target_origin = (target.scheme, target.hostname, target.port or (443 if target.scheme == "https" else 80))
+            portal_origin = (portal.scheme, portal.hostname, portal.port or (443 if portal.scheme == "https" else 80))
+            if target_origin == portal_origin:
+                return inner._headers(), source
+        except ValueError:
+            pass
+        return None, ""
+
     def api_hello(self):
         return {
             "version": __version__,
@@ -297,7 +335,14 @@ class Bridge(QObject):
         return self.api_profiles()
 
     # ------------------------------------------------------------------ connection
-    def _connect(self, p: Profile):
+    def api_cloud_page(self, kind, server=None, after=None):
+        return cloud_catalog.page(kind, server, after)
+
+    def api_cloud_connect(self, kind, server, account, label):
+        profile = cloud_catalog.profile(kind, server, account, label)
+        return self._connect(profile, remember_profile=False)
+
+    def _connect(self, p: Profile, *, remember_profile=True):
         adapter = self.adapter_factory(p)
         self.generation += 1
         generation = self.generation
@@ -305,12 +350,12 @@ class Bridge(QObject):
         if generation != self.generation:
             raise BridgeError("A newer connection replaced this one.")
         if self.host is not None:
-            self.on_gui(lambda: self.host.stop_playback(silent=True))
+            self.on_gui(lambda: generation == self.generation and self.host.stop_playback(silent=True))
         self.adapter, self.profile, self.source_key = adapter, p, profile_identity(p)
         with self._refs_lock:
             self.refs.clear()
         self._episodes = []
-        if self.settings.get("last_profile") != p.name:
+        if remember_profile and self.settings.get("last_profile") != p.name:
             try:
                 merged = dict(self.settings, last_profile=p.name)
                 save_settings(merged)
@@ -328,6 +373,9 @@ class Bridge(QObject):
             self.on_gui(lambda: self.host.stop_playback(silent=True))
         self.adapter = self.profile = None
         self.source_key = ""
+        with self._refs_lock:
+            self.refs.clear()
+        self._episodes = []
         return True
 
     # ------------------------------------------------------------------ catalog
@@ -338,13 +386,14 @@ class Bridge(QObject):
         rows = adapter.categories(kind, cancelled=self._cancelled(gen))
         return [{"id": c.id, "title": c.title} for c in rows if c.title]
 
-    def api_items(self, kind, category_id=""):
+    def api_items(self, kind, category_id="", request=None):
         if kind not in KINDS:
             raise BridgeError("Unknown section.")
         adapter, gen = self._require()
-        rows = adapter.items(kind, str(category_id or ""), cancelled=self._cancelled(gen))
-        if gen != self.generation:
-            return []
+        cancelled = lambda: self._cancelled(gen)() or (request is not None and request != self.catalog_request)
+        rows = adapter.items(kind, str(category_id or ""), cancelled=cancelled)
+        if cancelled():
+            raise BridgeError("Catalog request replaced.")
         return [self.view(x) for x in rows]
 
     def api_episodes(self, ref):
@@ -384,6 +433,13 @@ class Bridge(QObject):
             self._tmdb = RichTMDb(key, lang)
         return self._tmdb
 
+    def api_poster(self, ref):
+        item = self.item(ref)
+        if item.kind == "live":
+            return ""
+        tmdb_id = str((item.raw or {}).get("tmdb_id") or (item.raw or {}).get("tmdb") or "")
+        return self._tmdb_client().poster(item.title, item.kind, item.year, tmdb_id if tmdb_id.isdigit() else "")
+
     def api_details(self, ref):
         item = self.item(ref)
         base = self.view(item)
@@ -394,7 +450,10 @@ class Bridge(QObject):
                                           item.year, tmdb_id if tmdb_id.isdigit() else "")
         if meta:
             base["tmdb"] = meta
-            base["poster"] = base["poster"] or meta.get("poster", "")
+            if meta.get("poster"):
+                if base["poster"] and base["poster"] != meta["poster"]:
+                    base["poster_alt"] = base["poster"]
+                base["poster"] = meta["poster"]
             base["backdrop"] = meta.get("backdrop") or base["backdrop"]
             if not base["description"]:
                 base["description"] = meta.get("overview", "")
@@ -462,7 +521,8 @@ class Bridge(QObject):
             merged["tmdb_api_key"] = str(data.get("tmdb_api_key") or "").strip()
         save_settings(merged)
         self.settings = merged
-        self._tmdb = None
+        if any(k in data for k in ("tmdb_api_key", "tmdb_language", "ui_language")):
+            self._tmdb = None
         return {k: merged.get(k) for k in UI_SETTINGS} | {"has_tmdb_key": bool(merged.get("tmdb_api_key"))}
 
     def api_clear_cache(self):
@@ -476,33 +536,34 @@ class Bridge(QObject):
         return True
 
     # ------------------------------------------------------------------ playback
-    def api_play(self, ref, from_start=False):
+    def api_play(self, ref, from_start=False, request=None):
         item = self.item(ref)
         adapter, gen = self._require()
+        source_key = self.source_key
+        cancelled = lambda: self._cancelled(gen)() or (request is not None and request != self.play_request)
         if item.kind == "series":
             raise BridgeError("Choose an episode first.")
         start = 0.0
         dur = 0.0
         if not from_start and item.kind != "live":
             try:
-                pos, dur = db.resume_point(self.source_key, item)
+                pos, dur = db.resume_point(source_key, item)
                 if dur and 30 < pos < dur - 60:
                     start = pos
             except Exception:
                 pass
-        urls = adapter.stream_candidates(item, cancelled=self._cancelled(gen))
-        if gen != self.generation:
-            raise BridgeError("The source changed.")
+        urls = adapter.stream_candidates(item, cancelled=cancelled)
+        if cancelled():
+            return {"started": False}
         if not urls:
             raise BridgeError("The source returned no playable link for this item.")
         try:
-            db.add_history(self.source_key, item, start, dur)
+            db.add_history(source_key, item, start, dur)
         except Exception as exc:
             log.warning("History unavailable: %s", type(exc).__name__)
         view = self.view(item)
         if self.host is not None:
-            source_key = self.source_key
-            self.on_gui(lambda: self.host.start_playback(item, view, urls, start, source_key))
+            self.on_gui(lambda: not cancelled() and self.host.start_playback(item, view, urls, start, source_key))
         return {"started": True, "title": item.title}
 
     def play_next_episode(self, item: MediaItem):
@@ -520,20 +581,24 @@ class Bridge(QObject):
                 self.api_play(ref, True)
                 self.emit_event("toast", message=self._episodes[idx + 1].title)
             except Exception as exc:
-                self.on_gui(lambda: self.emit_event("toast", message=self._safe_error(exc), error=True))
+                message = self._safe_error(exc)
+                self.on_gui(lambda: self.emit_event("toast", message=message, error=True))
 
         self.pool.submit(task)
 
-    def api_preview(self, ref, rect):
+    def api_preview(self, ref, rect, request=None):
         """Live preview inside column 3; rect is the video box in CSS pixels."""
         item = self.item(ref)
         adapter, gen = self._require()
-        urls = adapter.stream_candidates(item, cancelled=self._cancelled(gen))
+        cancelled = lambda: self._cancelled(gen)() or (request is not None and request != self.preview_request)
+        urls = adapter.stream_candidates(item, cancelled=cancelled)
+        if cancelled():
+            return {"started": False}
         if not urls:
             raise BridgeError("The source returned no playable link for this channel.")
         view = self.view(item)
         if self.host is not None and gen == self.generation:
-            self.on_gui(lambda: self.host.start_preview(item, view, urls, rect))
+            self.on_gui(lambda: not cancelled() and self.host.start_preview(item, view, urls, rect))
         return {"started": True}
 
     def api_ui_preview_rect(self, rect):
@@ -542,6 +607,7 @@ class Bridge(QObject):
         return True
 
     def api_ui_stop_preview(self):
+        self.preview_request += 1
         if self.host is not None:
             self.host.stop_preview()
         return True
