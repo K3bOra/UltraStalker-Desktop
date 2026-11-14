@@ -306,8 +306,8 @@
       "size": 3797
     },
     "ultrastalker_desktop/storage/database.py": {
-      "sha256": "91c86b0fe249c05d90c397e258eb4399d4eecdf33be28496d4214e3906c0f473",
-      "size": 17073
+      "sha256": "b0ea30006b43102aa9d042467f2a7ba16c1631627b3fe7a17295c7473d515b37",
+      "size": 17201
     },
     "ultrastalker_desktop/storage/profiles.py": {
       "sha256": "8f44750b8f3386267ed2180c83d672c979166f3e22563f7641bb22c349af526c",
@@ -326,12 +326,12 @@
       "size": 0
     },
     "ultrastalker_desktop/ui/app/app.css": {
-      "sha256": "32dd1cda7fc1a150150691a98e29871ef78e7545c29996a4ed3f33c3dcead21d",
-      "size": 40773
+      "sha256": "da6a27b7342ab9772c61d64f65c7e9b7a5c3751b1b3862bf1148d1f2bca08845",
+      "size": 52703
     },
     "ultrastalker_desktop/ui/app/app.js": {
-      "sha256": "b2f786a777bb7f3a93738b392d9e14feffe1a43dd4d4f40354c27bc8ebbd86e9",
-      "size": 59084
+      "sha256": "c30496d896ad5b37013a4159201649416e1bb1eca76e8fad663dffc537b412ca",
+      "size": 70712
     },
     "ultrastalker_desktop/ui/app/fonts/OFL-Cairo.txt": {
       "sha256": "aa2b13bf0770c59a7fb7a3b793a7df5162c9cb5ad540ec81b0c0c1385946845d",
@@ -350,37 +350,37 @@
       "size": 33820
     },
     "ultrastalker_desktop/ui/app/index.html": {
-      "sha256": "718e836b330246a8ac29024aa534168e0beed0096cf3dbe5b50c17824fabc66f",
-      "size": 2255
+      "sha256": "8d103b41f93297cf6b7be49242e5b109374ae26efe56d31735a9bf4f34f81c82",
+      "size": 2856
     },
     "ultrastalker_desktop/ui/app/mock.js": {
-      "sha256": "c23bbdd5a95cfc863944a2b8b3dd16aa7e6e150462a4e5d4fc8a47deed3857b8",
-      "size": 9906
+      "sha256": "42a1dc834258cd59515d7ca3240a7d95abc7fdf0c7f0c30df3ea199a0e007112",
+      "size": 10047
     },
     "ultrastalker_desktop/ui/bridge.py": {
-      "sha256": "dc8d916d86e4964ab58f3d6068d997a3633beed20c11037a6d1d6243f36fd288",
-      "size": 22713
+      "sha256": "b14060868786194a980a1a6bb45223ee87f2f8569db2614ba22626e17b69727b",
+      "size": 23098
     },
     "ultrastalker_desktop/ui/main_window.py": {
       "sha256": "b6c4c986809fdfb9a9aa19f4c640af94061d8dbbb630f8dc31aa0712638ee472",
       "size": 44660
     },
     "ultrastalker_desktop/ui/player_view.py": {
-      "sha256": "78680f56d17f6d07965daee52fec73b6770b40e5d6ad617c5810f52123284a80",
-      "size": 21081
+      "sha256": "d64935728da9cb1358c59476ea1eb97dc8296c9ec7aec2fda0b13e6817ef49bf",
+      "size": 28980
     },
     "ultrastalker_desktop/ui/shell.py": {
-      "sha256": "e07844082b222b2e42e424afb8014ca487bfe23442309bd29dba367cb6c5381e",
-      "size": 9551
+      "sha256": "92008996dbe0109e359ccb2c7780858d09bd997a117feada006d9f63425929fa",
+      "size": 9763
     }
   },
-  "freeze_utc": "2026-11-13T22:26:13.868265Z",
+  "freeze_utc": "2026-11-14T04:02:49.006448Z",
   "product": "Ultra Stalker Desktop",
   "reference": "Ultra Stalker 8.4.1",
   "reference_artifact": "UltraStalker_V7_UPDATE.ipk",
   "reference_artifact_sha256": "d845f917a3a1507c454a7848dd12714ffe720bf568966e0196c06f14f2131876",
   "reference_parity": "behavioral-reference; original 8.4.1 source bytes unavailable",
-  "source_tree_sha256": "e0e99a0da5c80217f6f68abf62338e0dab8ea0b7dca46714c4e03b232e005649",
+  "source_tree_sha256": "653e6e26e0dfb33cdaf2bcc6e8d25630c48b1c380be092feb98a493500d3980a",
   "status": "source-frozen release candidate",
   "validation": {
     "clean_room": "PASS",

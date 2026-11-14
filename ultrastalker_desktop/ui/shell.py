@@ -143,6 +143,12 @@ class ShellWindow(QMainWindow):
         except Exception:
             pass
 
+    def clear_web_cache(self):
+        try:
+            self.profile.clearHttpCache()
+        except Exception:
+            pass
+
     def toggle_window_fullscreen(self):
         if self.isFullScreen():
             self.showMaximized() if self._was_maximized else self.showNormal()
@@ -173,6 +179,7 @@ class ShellWindow(QMainWindow):
     def start_playback(self, item, view, urls, start, source_key):
         self.stop_preview()
         self._source_key = source_key
+        self.player.set_language(self.bridge.settings.get("ui_language") or "ar")
         self.player.start(item, view, urls, start, source_key)
 
     def stop_playback(self, silent=False):

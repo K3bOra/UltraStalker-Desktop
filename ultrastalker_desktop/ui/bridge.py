@@ -465,6 +465,16 @@ class Bridge(QObject):
         self._tmdb = None
         return {k: merged.get(k) for k in UI_SETTINGS} | {"has_tmdb_key": bool(merged.get("tmdb_api_key"))}
 
+    def api_clear_cache(self):
+        """Forget saved catalog lists (all sources) and the page's image cache."""
+        try:
+            db.cache_delete_prefix("")
+        except Exception as exc:
+            log.warning("Cache clear failed: %s", type(exc).__name__)
+        if self.host is not None:
+            self.on_gui(lambda: self.host.clear_web_cache())
+        return True
+
     # ------------------------------------------------------------------ playback
     def api_play(self, ref, from_start=False):
         item = self.item(ref)

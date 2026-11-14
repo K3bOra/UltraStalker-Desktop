@@ -171,7 +171,9 @@ def _migrate_legacy_episode_key(c, table: str, source: str, item: MediaItem) -> 
 def _payload(item):
     # Favorites/history are long-lived; shared snapshot sanitization removes
     # transport URLs/commands, signed artwork and opaque provider payloads.
-    return json.dumps(media_snapshot(item, keep_safe_artwork=False), ensure_ascii=False)
+    # Plain artwork links (no query string, no user info) are kept so the
+    # Home shelves can show posters and channel logos.
+    return json.dumps(media_snapshot(item, keep_safe_artwork=True), ensure_ascii=False)
 
 
 def _recover_item_from_key(row) -> MediaItem:

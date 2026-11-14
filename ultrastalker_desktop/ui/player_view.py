@@ -50,6 +50,20 @@ def svg_icon(name: str, color: str = "#f1f5f3", size: int = 24) -> QIcon:
     return icon
 
 
+STRINGS = {
+    "ar": {"back": "رجوع (Esc)", "audio": "تراك الصوت (A)", "subs": "الترجمة (S)", "rew": "رجوع 10 ثواني (←)",
+           "play": "تشغيل / إيقاف مؤقت (مسافة)", "fwd": "تقديم 30 ثانية (→)", "next": "الحلقة اللي بعدها (N)",
+           "vdown": "وطّي الصوت (↓)", "vup": "علّي الصوت (↑)", "full": "ملء الشاشة (F)", "ends": "ينتهي", "live": "مباشر",
+           "opening": "جاري الفتح…", "failed": "القناة أو الفيلم مفتحش. جرّب تاني أو اختار حاجة تانية.",
+           "days": ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"]},
+    "en": {"back": "Back (Esc)", "audio": "Audio track (A)", "subs": "Subtitles (S)", "rew": "Back 10s (←)",
+           "play": "Play / pause (Space)", "fwd": "Forward 30s (→)", "next": "Next episode (N)",
+           "vdown": "Volume down (↓)", "vup": "Volume up (↑)", "full": "Full screen (F)", "ends": "Ends", "live": "LIVE",
+           "opening": "Opening…", "failed": "This stream could not be opened. Try again or pick another.",
+           "days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]},
+}
+
+
 def clock(sec: float) -> str:
     sec = max(0, int(sec or 0))
     h, rem = divmod(sec, 3600)
@@ -76,6 +90,12 @@ QToolButton:hover { background: rgba(53,211,155,0.22); border-color: #35d39b; }
 QToolButton:pressed { background: rgba(53,211,155,0.35); }
 QToolButton#main { background: #1fa874; border: 1px solid #5ff0bb; border-radius: 28px; }
 QToolButton#main:hover { background: #29bf86; }
+QWidget#ctrlrow { background: transparent; }
+QLabel#poster { background: #0b1714; border: 1px solid rgba(255,255,255,0.16); border-radius: 10px; }
+QLabel#chip { color: #dfe8e4; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); border-radius: 7px; padding: 2px 9px; font-size: 11.5px; font-weight: 700; }
+QLabel#bigclock { color: #ffffff; font-size: 30px; font-weight: 900; }
+QLabel#date { color: #35d39b; font-size: 12.5px; font-weight: 700; }
+QToolButton#round { border-radius: 20px; }
 QSlider::groove:horizontal { height: 6px; background: rgba(255,255,255,0.16); border-radius: 3px; }
 QSlider::sub-page:horizontal { background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #1fa874, stop:1 #35d39b); border-radius: 3px; }
 QSlider::handle:horizontal { width: 16px; height: 16px; margin: -6px 0; border-radius: 8px; background: #ffffff; border: 2px solid #35d39b; }
@@ -134,50 +154,66 @@ class PlayerView(QWidget):
         # Create the video's native window first so the control bars, created
         # after it, always stack above the picture.
         self._video_wid = int(self.video.winId())
+        self.lang = "ar"
         self.top = QFrame(self); self.top.setObjectName("topbar"); self.top.setAttribute(Qt.WA_NativeWindow, True)
         tl = QHBoxLayout(self.top); tl.setContentsMargins(22, 10, 22, 10)
-        self.btn_back = self._btn("back", "Back (Esc)", self.close_player, 40)
+        self.btn_back = self._btn("back", "", self.close_player, 40); self.btn_back.setObjectName("round")
         self.status = QLabel(""); self.status.setObjectName("status")
-        self.clock = QLabel(""); self.clock.setObjectName("clock")
-        tl.addWidget(self.btn_back); tl.addSpacing(12); tl.addWidget(self.status); tl.addStretch(1); tl.addWidget(self.clock)
+        self.top_title = QLabel(""); self.top_title.setObjectName("meta")
+        tl.addWidget(self.btn_back); tl.addSpacing(12); tl.addWidget(self.top_title); tl.addSpacing(10); tl.addWidget(self.status); tl.addStretch(1)
 
         self.osd = QFrame(self); self.osd.setObjectName("osd"); self.osd.setAttribute(Qt.WA_NativeWindow, True)
-        ol = QVBoxLayout(self.osd); ol.setContentsMargins(28, 14, 28, 16); ol.setSpacing(8)
-        row1 = QHBoxLayout(); row1.setSpacing(12)
-        self.poster = QLabel(); self.poster.setFixedSize(0, 0)
-        info = QVBoxLayout(); info.setSpacing(0)
+        outer = QHBoxLayout(self.osd); outer.setContentsMargins(26, 16, 26, 16); outer.setSpacing(20)
+        self.poster = QLabel(); self.poster.setObjectName("poster"); self.poster.setFixedSize(104, 156); self.poster.setAlignment(Qt.AlignCenter)
+        outer.addWidget(self.poster, 0, Qt.AlignVCenter)
+        ol = QVBoxLayout(); ol.setSpacing(8); outer.addLayout(ol, 1)
+        row1 = QHBoxLayout(); row1.setSpacing(14)
+        info = QVBoxLayout(); info.setSpacing(2)
         self.title = QLabel(""); self.title.setObjectName("title")
         self.meta = QLabel(""); self.meta.setObjectName("meta")
-        info.addWidget(self.title); info.addWidget(self.meta)
+        chips = QHBoxLayout(); chips.setSpacing(6); chips.setContentsMargins(0, 4, 0, 0)
+        self.chip_labels = [QLabel("") for _ in range(4)]
+        for c in self.chip_labels:
+            c.setObjectName("chip"); c.hide(); chips.addWidget(c)
+        chips.addStretch(1)
+        info.addWidget(self.title); info.addWidget(self.meta); info.addLayout(chips)
         self.live_badge = QLabel("LIVE"); self.live_badge.setObjectName("live")
-        self.ends = QLabel(""); self.ends.setObjectName("ends")
-        row1.addLayout(info, 1); row1.addWidget(self.live_badge); row1.addWidget(self.ends)
+        clk = QVBoxLayout(); clk.setSpacing(0)
+        self.clock = QLabel(""); self.clock.setObjectName("bigclock"); self.clock.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.date = QLabel(""); self.date.setObjectName("date"); self.date.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.ends = QLabel(""); self.ends.setObjectName("ends"); self.ends.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        clk.addWidget(self.clock); clk.addWidget(self.date); clk.addWidget(self.ends)
+        row1.addLayout(info, 1); row1.addWidget(self.live_badge, 0, Qt.AlignTop); row1.addLayout(clk)
         ol.addLayout(row1)
-        row2 = QHBoxLayout(); row2.setSpacing(14)
+        # media controls and the timeline keep left-to-right order in both languages
+        self.timeline = QWidget(); self.timeline.setLayoutDirection(Qt.LeftToRight); self.timeline.setObjectName("ctrlrow")
+        row2 = QHBoxLayout(self.timeline); row2.setSpacing(14); row2.setContentsMargins(0, 0, 0, 0)
         self.t_pos = QLabel("00:00"); self.t_pos.setObjectName("time")
         self.slider = QSlider(Qt.Horizontal); self.slider.setRange(0, 1000); self.slider.setFocusPolicy(Qt.NoFocus)
         self.slider.sliderPressed.connect(lambda: setattr(self, "_seeking", True))
         self.slider.sliderReleased.connect(self._slider_seek)
         self.t_left = QLabel("-00:00"); self.t_left.setObjectName("time")
         row2.addWidget(self.t_pos); row2.addWidget(self.slider, 1); row2.addWidget(self.t_left)
-        ol.addLayout(row2)
-        row3 = QHBoxLayout(); row3.setSpacing(12)
-        self.btn_audio = self._btn("audio", "Audio track (A)", lambda: self._control(self._cycle_audio))
-        self.btn_subs = self._btn("subs", "Subtitles (S)", lambda: self._control(self._cycle_subs))
-        self.btn_rew = self._btn("rew", "Back 10s (←)", lambda: self.seek(-10))
-        self.btn_play = self._btn("pause", "Play / pause (Space)", self.toggle_pause, 56); self.btn_play.setObjectName("main")
-        self.btn_fwd = self._btn("fwd", "Forward 30s (→)", lambda: self.seek(30))
-        self.btn_next = self._btn("next", "Next episode (N)", self._next)
-        self.btn_vdown = self._btn("vol_down", "Volume down (↓)", lambda: self.change_volume(-10))
+        ol.addWidget(self.timeline)
+        self.controls = QWidget(); self.controls.setLayoutDirection(Qt.LeftToRight); self.controls.setObjectName("ctrlrow")
+        row3 = QHBoxLayout(self.controls); row3.setSpacing(12); row3.setContentsMargins(0, 0, 0, 0)
+        self.btn_audio = self._btn("audio", "", lambda: self._control(self._cycle_audio))
+        self.btn_subs = self._btn("subs", "", lambda: self._control(self._cycle_subs))
+        self.btn_rew = self._btn("rew", "", lambda: self.seek(-10))
+        self.btn_play = self._btn("pause", "", self.toggle_pause, 56); self.btn_play.setObjectName("main")
+        self.btn_fwd = self._btn("fwd", "", lambda: self.seek(30))
+        self.btn_next = self._btn("next", "", self._next)
+        self.btn_vdown = self._btn("vol_down", "", lambda: self.change_volume(-10))
         self.vol_label = QLabel("100%"); self.vol_label.setObjectName("time")
-        self.btn_vup = self._btn("vol_up", "Volume up (↑)", lambda: self.change_volume(10))
-        self.btn_full = self._btn("full", "Full screen (F)", self.toggle_fullscreen)
+        self.btn_vup = self._btn("vol_up", "", lambda: self.change_volume(10))
+        self.btn_full = self._btn("full", "", self.toggle_fullscreen)
         row3.addWidget(self.btn_audio); row3.addWidget(self.btn_subs); row3.addStretch(1)
         for b in (self.btn_rew, self.btn_play, self.btn_fwd, self.btn_next):
             row3.addWidget(b)
         row3.addStretch(1)
         row3.addWidget(self.btn_vdown); row3.addWidget(self.vol_label); row3.addWidget(self.btn_vup); row3.addSpacing(8); row3.addWidget(self.btn_full)
-        ol.addLayout(row3)
+        ol.addWidget(self.controls)
+        self.set_language("ar")
 
         self.hide_timer = QTimer(self); self.hide_timer.setSingleShot(True); self.hide_timer.setInterval(3500)
         self.hide_timer.timeout.connect(self._auto_hide)
@@ -186,6 +222,95 @@ class PlayerView(QWidget):
         self.hide()
 
     # ------------------------------------------------------------------ layout
+    def set_language(self, lang):
+        self.lang = "en" if lang == "en" else "ar"
+        L = STRINGS[self.lang]
+        for b, k in ((self.btn_back, "back"), (self.btn_audio, "audio"), (self.btn_subs, "subs"), (self.btn_rew, "rew"),
+                     (self.btn_play, "play"), (self.btn_fwd, "fwd"), (self.btn_next, "next"), (self.btn_vdown, "vdown"),
+                     (self.btn_vup, "vup"), (self.btn_full, "full")):
+            b.setToolTip(L[k])
+        self.live_badge.setText(L["live"])
+        rtl = self.lang == "ar"
+        self.osd.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
+        self.top.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
+        align = (Qt.AlignLeft if rtl else Qt.AlignRight) | Qt.AlignAbsolute | Qt.AlignVCenter
+        for lab in (self.clock, self.date, self.ends):
+            lab.setAlignment(align)
+        self.timeline.setLayoutDirection(Qt.LeftToRight)
+        self.controls.setLayoutDirection(Qt.LeftToRight)
+        side = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter
+        for lab in (self.title, self.meta, self.top_title):
+            lab.setAlignment(side)
+
+    def _set_poster(self, data: bytes | None):
+        from PySide6.QtGui import QImage, QPainterPath
+        img = QImage()
+        if not data or not img.loadFromData(data):
+            self.poster.setPixmap(QPixmap()); self.poster.setText("▶"); return
+        dpr = self.devicePixelRatioF() or 1.0
+        w, h = int(self.poster.width() * dpr), int(self.poster.height() * dpr)
+        scaled = img.scaled(w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+        pm = QPixmap(w, h); pm.fill(Qt.transparent)
+        p = QPainter(pm); p.setRenderHint(QPainter.Antialiasing)
+        path = QPainterPath(); path.addRoundedRect(0, 0, w, h, 10 * dpr, 10 * dpr)
+        p.setClipPath(path); p.drawImage((w - scaled.width()) // 2, (h - scaled.height()) // 2, scaled); p.end()
+        pm.setDevicePixelRatio(dpr)
+        self.poster.setText(""); self.poster.setPixmap(pm)
+
+    def _load_poster(self, url, gen):
+        def task():
+            try:
+                import requests
+                r = requests.get(url, timeout=6)
+                if r.ok and len(r.content) < 6_000_000:
+                    return r.content
+            except Exception:
+                return None
+            return None
+        def done(fut):
+            try:
+                data = fut.result()
+            except Exception:
+                data = None
+            self._ui.emit(lambda: gen == self.generation and self._set_poster(data))
+        self.pool.submit(task).add_done_callback(done)
+
+    def _stream_info(self, b, gen):
+        """Resolution / codecs shown as small chips, like the receiver's info bar (mpv only)."""
+        if not hasattr(b, "command"):
+            return
+        def task():
+            get = lambda name: b.command("get_property", name)
+            w, h = get("width"), get("height")
+            vc, ac, fps = get("video-format"), get("audio-codec-name"), get("container-fps")
+            out = []
+            if w and h:
+                out.append(f"{int(w)}×{int(h)}")
+            if vc:
+                out.append(str(vc).upper()[:10])
+            if ac:
+                out.append(str(ac).upper()[:8])
+            try:
+                if fps and float(fps) > 1:
+                    out.append(f"{round(float(fps))} FPS")
+            except (TypeError, ValueError):
+                pass
+            return out
+        def done(fut):
+            try:
+                chips = fut.result()
+            except Exception:
+                return
+            self._ui.emit(lambda: gen == self.generation and self._set_chips(chips))
+        self.pool.submit(task).add_done_callback(done)
+
+    def _set_chips(self, chips):
+        for i, c in enumerate(self.chip_labels):
+            if i < len(chips):
+                c.setText(chips[i]); c.show()
+            else:
+                c.hide()
+
     def _btn(self, icon, tip, fn, size=44):
         b = QToolButton(self); b.setIcon(svg_icon(icon)); b.setIconSize(QSize(int(size * 0.5), int(size * 0.5)))
         b.setFixedSize(size, size); b.setToolTip(tip); b.setFocusPolicy(Qt.NoFocus); b.setCursor(Qt.PointingHandCursor)
@@ -197,7 +322,7 @@ class PlayerView(QWidget):
         w, h = self.width(), self.height()
         self.video.setGeometry(0, 0, w, h)
         self.top.setGeometry(0, 0, w, 64)
-        osd_h = 168
+        osd_h = 196
         self.osd.setGeometry(0, h - osd_h, w, osd_h)
 
     def show_osd(self):
@@ -233,13 +358,19 @@ class PlayerView(QWidget):
         if item.season is not None and item.episode is not None:
             bits.insert(0, f"S{int(item.season):02d} · E{int(item.episode):02d}")
         self.meta.setText("   ".join(bits))
-        for w in (self.slider, self.t_pos, self.t_left, self.btn_rew, self.btn_fwd):
+        for w in (self.timeline, self.btn_rew, self.btn_fwd):
             w.setVisible(not self.live)
         self.live_badge.setVisible(self.live)
         self.btn_next.setVisible(item.kind == "episode")
         self.btn_play.setIcon(svg_icon("pause"))
-        self.status.setText("…")
+        self.status.setText(STRINGS[self.lang]["opening"])
+        self.top_title.setText(self.view.get("title") or item.title)
         self.ends.setText("")
+        self._set_chips([])
+        self._set_poster(None)
+        if str(self.view.get("poster") or "").startswith(("http://", "https://")):
+            self._load_poster(self.view["poster"], gen)
+        self._tick_clock()
         self.show(); self.raise_(); self.setFocus(); self.show_osd()
         self.cursor_timer.start(); self.poll_timer.start()
         backend = self.backend_factory()
@@ -258,7 +389,7 @@ class PlayerView(QWidget):
                 backend.play_candidates(urls, start, should_cancel=lambda: gen != self.generation)
             except Exception as exc:
                 if gen == self.generation:
-                    msg = str(exc) if "not found" in str(exc).lower() else "This stream could not be opened."
+                    msg = str(exc) if "not found" in str(exc).lower() else STRINGS[self.lang]["failed"]
                     self._ui.emit(lambda: self._failed(gen, msg))
                 return
             self._ui.emit(lambda: self._started(gen))
@@ -270,6 +401,8 @@ class PlayerView(QWidget):
             return
         self.playing = True
         self.status.setText("")
+        if self.backend is not None:
+            QTimer.singleShot(1500, lambda: gen == self.generation and self.backend is not None and self._stream_info(self.backend, gen))
 
     def _failed(self, gen, msg):
         if gen != self.generation:
@@ -300,8 +433,13 @@ class PlayerView(QWidget):
         self.pool.shutdown(wait=False, cancel_futures=False)
 
     # ------------------------------------------------------------------ polling
+    def _tick_clock(self):
+        now = time.localtime()
+        self.clock.setText(time.strftime("%H:%M", now))
+        self.date.setText(f"{STRINGS[self.lang]['days'][now.tm_wday]} {now.tm_mday}/{now.tm_mon}")
+
     def _poll(self):
-        self.clock.setText(time.strftime("%H:%M"))
+        self._tick_clock()
         b = self.backend
         if self._polling or b is None:
             return
@@ -346,7 +484,7 @@ class PlayerView(QWidget):
                 self.slider.setValue(int(1000 * self.position / self.duration))
             self.t_pos.setText(clock(self.position))
             self.t_left.setText("-" + clock(self.duration - self.position))
-            self.ends.setText("Ends " + time.strftime("%H:%M", time.localtime(time.time() + self.duration - self.position)))
+            self.ends.setText(STRINGS[self.lang]["ends"] + " " + time.strftime("%H:%M", time.localtime(time.time() + self.duration - self.position)))
         self._save_progress()
 
     def _save_progress(self, force=False):

@@ -41,7 +41,7 @@
   };
   const all = (kind) => cats[kind].flatMap((c) => mk(kind, c.id, kind === "live" ? 40 : 48));
   const byRef = (ref) => { const [kind] = ref.split("|"); return all(kind).find((x) => x.ref === ref) || Object.values(items).flat().find((x) => x.ref === ref); };
-  let profiles = [
+  let profiles = new URLSearchParams(location.search).get('noprof') ? [] : [
     { name: "Ahmed HadarY", type: "stalker", host: "portal.example.tv:8080", mac: "00:1A:79:••:••:4C", user: "" },
     { name: "Xtream Gold", type: "xtream", host: "gold.example.net", mac: "", user: "ahmed" },
     { name: "My M3U", type: "m3u", host: "lists.example.org", mac: "", user: "" },
@@ -81,6 +81,7 @@
     favorites: () => { const out = { live: [], movies: [], series: [] }; [...fav].map(byRef).filter(Boolean).forEach((x) => out[x.kind].push(x)); if (!fav.size) { out.movies = mk("movies", "m0", 48).slice(3, 9); out.live = mk("live", "l1", 40).slice(0, 5); } return out; },
     history: () => [...mk("movies", "m0", 48).slice(0, 5).map((x, i) => Object.assign({}, x, { percent: 20 + i * 15, progress: "30:00" })), ...mk("series", "s0", 48).slice(2, 5).map((x, i) => Object.assign({}, x, { percent: 50 + i * 10 })), ...mk("live", "l2", 40).slice(0, 6)],
     settings_save: (d) => Object.assign(settings, d),
+    clear_cache: () => true, disconnect: () => { connected = null; return true; },
     play: () => ({ started: true }), preview: () => ({ started: true }),
     ui_preview_rect: () => true, ui_stop_preview: () => true, ui_fullscreen: () => true, ui_open_url: () => true,
   };

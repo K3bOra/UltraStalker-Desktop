@@ -11,9 +11,10 @@ const STR = {
     play: "تشغيل", resume: "استكمال", fromStart: "من الأول", details: "التفاصيل", trailer: "الإعلان", favorite: "مفضلة",
     fullscreen: "ملء الشاشة", overview: "القصة", cast: "الأبطال", country: "البلد", language: "اللغة",
     season: "الموسم", seasons: "المواسم", episode: "حلقة", episodes: "حلقة", min: "دقيقة", now: "الآن", next: "التالي",
-    noEpg: "لا يوجد دليل برامج لهذه القناة", pickChannel: "اختار قناة للمعاينة", previewOff: "المعاينة متوقفة — دبل كليك للتشغيل",
+    noEpg: "لا يوجد دليل برامج لهذه القناة", previewStop: "وقف المعاينة", previewStart: "شغّل المعاينة", pickChannel: "اختار قناة للمعاينة", previewOff: "المعاينة متوقفة — دبل كليك للتشغيل",
     filter: "فلترة بالاسم…", searchAll: "ابحث في القنوات والأفلام والمسلسلات…", items: "عنصر",
     continueW: "كمل مشاهدة", recentLive: "آخر القنوات", favShelf: "مفضلتك", seeAll: "عرض الكل",
+    continueMovies: "كمل الأفلام", continueSeries: "كمل المسلسلات", noLiveYet: "القنوات اللي تتفرج عليها هتظهر هنا", noMoviesYet: "الأفلام اللي تبدأها هتكمّلها من هنا", noSeriesYet: "الحلقات اللي تبدأها هتكمّلها من هنا",
     connectFirst: "اختار مصدر الأول", addSource: "إضافة مصدر", editSource: "تعديل المصدر", connect: "اتصال", save: "حفظ",
     cancel: "إلغاء", delete: "حذف", edit: "تعديل", connecting: "جاري الاتصال…", connected: "متصل", active: "المصدر الحالي",
     srcName: "اسم المصدر", srcUrl: "عنوان البورتال / السيرفر", srcMac: "عنوان MAC", srcUser: "اسم المستخدم", srcPass: "كلمة المرور",
@@ -29,6 +30,12 @@ const STR = {
     keysBack: "رجوع", keysFav: "مفضلة", keysSearch: "بحث", keysCats: "الأقسام", keysPlay: "تشغيل", keysFull: "ملء الشاشة",
     page: "صفحة", serverOk: "السيرفر متصل", notConnected: "مش متصل", lastUpdate: "آخر تحديث",
     watched: "اتشافت", nextEp: "الحلقة الجاية", noEpisodes: "المصدر مرجعش حلقات للمسلسل ده",
+    currentSource: "المصدر الحالي", changeSource: "غيّر المصدر", disconnect: "قطع الاتصال", disconnected: "اتقطع الاتصال", open: "افتح",
+    playerEngine: "مشغل الفيديو", autoNext: "الحلقة اللي بعدها تشتغل لوحدها", autoNextSub: "أول ما الحلقة تخلص",
+    storage: "الذاكرة المؤقتة", clearCache: "امسح القوائم والصور المتخزنة", clearCacheSub: "البرنامج بيحفظ القوائم والصور عشان يفتح أسرع. امسحها لو البورتال اتحدث ومش باين.", cacheCleared: "اتمسحت الذاكرة المؤقتة",
+    shortcuts: "اختصارات الكيبورد", pauseKey: "إيقاف مؤقت", seekKey: "تقديم ورجوع",
+    welcome: "أهلاً بيك في الترا ستالكر", welcomeSub: "اختار نوع الاشتراك اللي معاك وضيفه، وبعدها كل حاجة هتبقى قدامك.",
+    type_stalker: "بورتال ماج بعنوان MAC", type_xtream: "سيرفر برقم مستخدم وباسورد", type_m3u: "قائمة قنوات من رابط",
     days: ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"],
   },
   en: {
@@ -37,9 +44,10 @@ const STR = {
     play: "Play", resume: "Resume", fromStart: "From start", details: "Details", trailer: "Trailer", favorite: "Favorite",
     fullscreen: "Full screen", overview: "Overview", cast: "Cast", country: "Country", language: "Language",
     season: "Season", seasons: "Seasons", episode: "episode", episodes: "episodes", min: "min", now: "NOW", next: "NEXT",
-    noEpg: "No programme guide for this channel", pickChannel: "Pick a channel to preview", previewOff: "Preview is off — double-click to play",
+    noEpg: "No programme guide for this channel", previewStop: "Stop preview", previewStart: "Start preview", pickChannel: "Pick a channel to preview", previewOff: "Preview is off — double-click to play",
     filter: "Filter by name…", searchAll: "Search channels, movies and series…", items: "items",
     continueW: "Continue watching", recentLive: "Recent channels", favShelf: "Your favorites", seeAll: "See all",
+    continueMovies: "Continue movies", continueSeries: "Continue series", noLiveYet: "Channels you watch show up here", noMoviesYet: "Pick up movies you started from here", noSeriesYet: "Pick up episodes you started from here",
     connectFirst: "Choose a source first", addSource: "Add source", editSource: "Edit source", connect: "Connect", save: "Save",
     cancel: "Cancel", delete: "Delete", edit: "Edit", connecting: "Connecting…", connected: "Connected", active: "Current source",
     srcName: "Source name", srcUrl: "Portal / server address", srcMac: "MAC address", srcUser: "Username", srcPass: "Password",
@@ -55,6 +63,12 @@ const STR = {
     keysBack: "Back", keysFav: "Favorite", keysSearch: "Search", keysCats: "Categories", keysPlay: "Play", keysFull: "Full screen",
     page: "Page", serverOk: "Server connected", notConnected: "Not connected", lastUpdate: "Last update",
     watched: "Watched", nextEp: "Next episode", noEpisodes: "The source returned no episodes for this series",
+    currentSource: "Current source", changeSource: "Change source", disconnect: "Disconnect", disconnected: "Disconnected", open: "Open",
+    playerEngine: "Video player", autoNext: "Play the next episode automatically", autoNextSub: "When an episode ends",
+    storage: "Saved data", clearCache: "Clear saved lists and images", clearCacheSub: "Lists and images are kept so screens open faster. Clear them if your portal changed and it doesn't show.", cacheCleared: "Saved lists and images cleared",
+    shortcuts: "Keyboard shortcuts", pauseKey: "Pause", seekKey: "Seek",
+    welcome: "Welcome to Ultra Stalker", welcomeSub: "Pick the kind of subscription you have and add it — everything else follows.",
+    type_stalker: "MAG portal with a MAC address", type_xtream: "Server with username and password", type_m3u: "Channel list from a link",
     days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
   },
 };
@@ -123,11 +137,11 @@ async function details(ref) {
 
 /* ------------------------------------------------------------------ backdrop */
 let bdFlip = false, bdUrl = "";
-function backdrop(url) {
+function backdrop(url, soft) {
   if ((url || "") === bdUrl) return; bdUrl = url || "";
   const a = $("#bd-a"), b = $("#bd-b"); const on = bdFlip ? a : b, off = bdFlip ? b : a; bdFlip = !bdFlip;
   if (!url) { a.classList.remove("on"); b.classList.remove("on"); return; }
-  const img = new Image(); img.onload = () => { if (bdUrl !== url) return; on.style.backgroundImage = `url("${url}")`; on.classList.add("on"); off.classList.remove("on"); };
+  const img = new Image(); img.onload = () => { if (bdUrl !== url) return; on.style.backgroundImage = `url("${url}")`; on.classList.toggle("soft", !!soft); on.classList.add("on"); off.classList.remove("on"); };
   img.src = url;
 }
 
@@ -196,18 +210,17 @@ function route() {
 window.addEventListener("hashchange", route);
 
 /* ------------------------------------------------------------------ home */
+const TILES = [["live", "ic-live"], ["movies", "ic-movies"], ["series", "ic-series"], ["favorites", "ic-star"], ["search", "ic-search"], ["sources", "ic-sources"], ["settings", "ic-settings"]];
 views.home = (v) => {
   if (!S.connected && !S.profiles.length) { location.hash = "#/sources"; return; }
   const page = h(`<section class="home">
-    <div class="home-top">
-      <div class="hero-info" id="hero"></div>
+    <div class="home-hero">
+      <div class="hero-info" id="hero"><div class="hero-skel"><i class="skel"></i><i class="skel"></i><i class="skel"></i></div></div>
       <div class="clock glass" id="clock"></div>
+      <div class="hero-dots" id="hero-dots"></div>
     </div>
-    <div class="tiles">
-      ${[["live", "ic-live"], ["movies", "ic-movies"], ["series", "ic-series"], ["favorites", "ic-star"], ["search", "ic-search"], ["sources", "ic-sources"], ["settings", "ic-settings"]]
-        .map(([k, ic]) => `<a class="tile" href="#/${k}"><i class="ic ${ic}"></i>${t(k)}</a>`).join("")}
-    </div>
-    <div id="shelves" style="display:grid;gap:22px"></div>
+    <nav class="tiles">${TILES.map(([k, ic]) => `<a class="tile" href="#/${k}"><i class="ic ${ic}"></i><span>${t(k)}</span></a>`).join("")}</nav>
+    <div class="panels" id="panels">${[0, 1, 2].map(() => `<section class="panel glass"><div class="spinner" style="margin:70px auto"></div></section>`).join("")}</div>
   </section>`);
   v.appendChild(page);
   const tick = () => {
@@ -215,51 +228,101 @@ views.home = (v) => {
     c.innerHTML = `<div class="time" dir="ltr">${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" })}</div>
       <div class="day">${t("days")[d.getDay()]}</div>
       <div class="date">${d.toLocaleDateString(LANG === "ar" ? "ar-EG-u-nu-latn" : "en-GB", { day: "numeric", month: "long", year: "numeric" })}</div>
-      <div class="status">${S.connected ? `<span><i class="live-dot"></i>${t("serverOk")}</span><b>${esc(S.connected.name)}</b><span dir="ltr">${esc(S.connected.host)}</span>` : `<span>${t("notConnected")}</span>`}<span>v${esc(S.version)}</span></div>`;
+      <div class="status">${S.connected ? `<span class="ok"><i class="live-dot"></i>${t("serverOk")}</span><b>${esc(S.connected.name)}</b><span dir="ltr" class="host">${esc(S.connected.host)}</span>` : `<span>${t("notConnected")}</span>`}</div>`;
   };
-  tick(); const iv = setInterval(tick, 15000); cleanup = () => clearInterval(iv);
-  bar(S.connected ? S.connected.name : "Ultra Stalker", [["", t("live"), "red"], ["", t("movies"), "green"], ["", t("series"), "yellow"], ["", t("search"), "blue"]], "");
-  if (!S.connected) { $("#hero").innerHTML = `<div class="logo"><div class="t">ULTRA STALKER</div></div><p>${t("connectFirst")}</p><a class="btn primary" href="#/sources">${t("sources")}</a>`; return; }
-  homeShelves(); homeHero();
+  tick(); const iv = setInterval(tick, 15000);
+  cleanup = () => { clearInterval(iv); clearInterval(Hero.timer); };
+  bar(S.connected ? S.connected.name : "Ultra Stalker", [["", t("live"), "red"], ["", t("movies"), "green"], ["", t("series"), "yellow"], ["", t("search"), "blue"]], "v" + S.version);
+  if (!S.connected) {
+    $("#hero").innerHTML = `<div class="logo"><div class="t">Ultra Stalker</div></div><p>${t("connectFirst")}</p><a class="btn primary" href="#/sources"><i class="ic ic-sources"></i>${t("sources")}</a>`;
+    $("#panels").innerHTML = ""; return;
+  }
+  homePanels(); Hero.start();
 };
-async function homeShelves() {
+
+async function homePanels() {
   let hist = [];
-  try { hist = remember(await api("history", 40)); } catch {}
-  let fav = { live: [], movies: [], series: [] };
-  try { fav = await api("favorites"); Object.values(fav).forEach(remember); } catch {}
-  const box = $("#shelves"); if (!box) return;
-  const cont = hist.filter((x) => x.kind !== "live" && x.percent > 0 && x.percent < 97).slice(0, 14);
-  const live = hist.filter((x) => x.kind === "live").slice(0, 14);
-  const favs = [...fav.movies, ...fav.series].slice(0, 16);
-  const shelf = (title, html, link, wide) => `<section class="shelf"><h3>${title}${link ? `<a href="${link}">${t("seeAll")}</a>` : ""}</h3><div class="strip ${wide ? "wide" : ""}">${html}</div></section>`;
-  let html = "";
-  if (cont.length) html += shelf(t("continueW"), cont.map((x) => posterHTML(x, { percent: x.percent })).join(""));
-  if (live.length) html += shelf(t("recentLive"), live.map((x) => `<div class="row ch" data-ref="${esc(x.ref)}" data-play="1" style="min-width:250px"><span class="logo">${x.poster ? imgTag(x) : esc(initials(x.title).slice(0, 3))}</span><span class="t">${esc(x.title)}</span></div>`).join(""));
-  if (favs.length) html += shelf(t("favShelf"), favs.map((x) => posterHTML(x)).join(""), "#/favorites");
-  box.innerHTML = html;
-  box.addEventListener("click", (e) => {
-    const el = e.target.closest("[data-ref]"); if (!el) return;
-    const x = S.view.get(el.dataset.ref);
-    if (el.dataset.play || x.kind === "live" || x.kind === "episode") play(x.ref); else location.hash = "#/details/" + encodeURIComponent(x.ref);
-  });
-  $$(".strip", box).forEach(dragScroll);
+  try { hist = remember(await api("history", 60)); } catch {}
+  const box = $("#panels"); if (!box) return;
+  const live = hist.filter((x) => x.kind === "live").slice(0, 5);
+  const movies = hist.filter((x) => x.kind === "movies" && x.percent < 97).slice(0, 4);
+  const eps = hist.filter((x) => (x.kind === "episode" || x.kind === "series") && x.percent < 97).slice(0, 4);
+  const empty = (msg, href, label) => `<div class="panel-empty"><span>${msg}</span><a class="btn" href="${href}">${label}</a></div>`;
+  const prog = (x) => x.percent ? `<div class="mini-prog"><i style="width:${x.percent}%"></i></div>` : "";
+  const epTag = (x) => x.season != null && x.episode != null ? `S${String(x.season).padStart(2, "0")} · E${String(x.episode).padStart(2, "0")}` : "";
+  const media = (rows, kind) => {
+    if (!rows.length) return empty(kind === "movies" ? t("noMoviesYet") : t("noSeriesYet"), "#/" + (kind === "movies" ? "movies" : "series"), t(kind === "movies" ? "movies" : "series"));
+    const [f, ...more] = rows; const rest = more.slice(0, 2);
+    return `<div class="panel-media">
+      <button class="feat" data-ref="${esc(f.ref)}" data-play="1">${posterHTML(f, { percent: f.percent })}</button>
+      <div class="panel-rows">
+        <button class="prow big" data-ref="${esc(f.ref)}" data-play="1"><b>${esc(f.title)}</b><small>${esc([epTag(f), f.progress].filter(Boolean).join(" · ") || t("resume"))}</small>${prog(f)}<span class="pplay"><i class="ic ic-play"></i>${t("resume")}</span></button>
+        ${rest.map((x) => `<button class="prow" data-ref="${esc(x.ref)}" data-play="1"><b>${esc(x.title)}</b><small>${esc([epTag(x), x.progress].filter(Boolean).join(" · "))}</small>${prog(x)}</button>`).join("")}
+      </div></div>`;
+  };
+  const liveHTML = live.length
+    ? `<div class="panel-live">${live.map((x) => `<button class="lrow" data-ref="${esc(x.ref)}" data-play="1"><span class="logo">${x.poster ? imgTag(x) : esc(initials(x.title).slice(0, 3))}</span><span class="t">${esc(x.title)}</span><span class="pi"><i class="ic ic-play"></i></span></button>`).join("")}</div>`
+    : empty(t("noLiveYet"), "#/live", t("live"));
+  box.innerHTML = `
+    <section class="panel glass"><h3><i class="ic ic-live"></i>${t("recentLive")}<a href="#/live">${t("seeAll")}</a></h3>${liveHTML}</section>
+    <section class="panel glass"><h3><i class="ic ic-movies"></i>${t("continueMovies")}<a href="#/movies">${t("seeAll")}</a></h3>${media(movies, "movies")}</section>
+    <section class="panel glass"><h3><i class="ic ic-series"></i>${t("continueSeries")}<a href="#/series">${t("seeAll")}</a></h3>${media(eps, "series")}</section>`;
+  box.onclick = (e) => { const el = e.target.closest("[data-ref]"); if (el) play(el.dataset.ref); };
+  // history keeps only plain artwork links: fill missing movie posters from TMDb in the background
+  for (const x of movies) if (!x.poster) details(x.ref).then((d) => {
+    const pp = d.poster || (d.tmdb || {}).poster; const img = pp && box.querySelector(`.feat[data-ref="${CSS.escape(x.ref)}"] .art`);
+    if (img && !img.querySelector("img")) img.insertAdjacentHTML("beforeend", `<img src="${esc(pp)}" alt="">`);
+  }).catch(() => {});
 }
-async function homeHero() {
-  try {
-    let pick = (await api("history", 12)).find((x) => x.kind === "movies" || x.kind === "series");
-    if (!pick) {
-      const cats = await categories("movies"); const first = cats[0];
-      if (first) { const rows = await items("movies", first.id); pick = rows[Math.floor(Math.random() * Math.min(rows.length, 24))]; }
-    }
-    if (!pick) return; remember([pick]);
-    const d = await details(pick.ref); if (S.route !== "home") return;
-    backdrop(d.backdrop || (d.tmdb || {}).backdrop || "");
-    $("#hero").innerHTML = `<div class="logo">${logoHTML(d, d.title)}</div><div class="meta" style="display:flex;gap:8px;flex-wrap:wrap">${metaChips(d)}</div>
-      <p>${esc(d.description || (d.tmdb || {}).overview || "")}</p>
-      <div style="display:flex;gap:10px"><button class="btn primary" data-a="play"><i class="ic ic-play"></i>${d.resume ? t("resume") : t("play")}</button><a class="btn" href="#/details/${encodeURIComponent(d.ref)}"><i class="ic ic-info"></i>${t("details")}</a></div>`;
-    $("#hero [data-a=play]").onclick = () => play(d.ref);
-  } catch (e) { /* hero is decoration */ }
-}
+
+/* featured titles: a slow cross-fading carousel of backdrops */
+const Hero = {
+  picks: [], i: 0, timer: 0,
+  async start() {
+    this.picks = []; this.i = 0; clearInterval(this.timer);
+    try {
+      const hist = (await api("history", 20)).filter((x) => x.kind === "movies" || x.kind === "series");
+      this.picks.push(...remember(hist.slice(0, 2)));
+      for (const kind of ["movies", "series"]) {
+        if (this.picks.length >= 6) break;
+        const cats = await categories(kind); if (!cats.length) continue;
+        const rows = await items(kind, cats[0].id);
+        const pool = rows.slice(0, 40).sort(() => Math.random() - 0.5).slice(0, kind === "movies" ? 3 : 2);
+        this.picks.push(...pool);
+      }
+    } catch { /* decoration only */ }
+    if (S.route !== "home") return;
+    if (!this.picks.length) { $("#hero").innerHTML = ""; return; }
+    $("#hero-dots").innerHTML = this.picks.map((_, k) => `<button data-k="${k}" aria-label="${k + 1}"></button>`).join("");
+    $("#hero-dots").onclick = (e) => { const b = e.target.closest("button"); if (b) { this.show(+b.dataset.k); this.loop(); } };
+    this.show(0); this.loop();
+  },
+  loop() { clearInterval(this.timer); this.timer = setInterval(() => S.route === "home" && this.show((this.i + 1) % this.picks.length), 11000); },
+  async show(k) {
+    this.i = k; const x = this.picks[k]; if (!x) return;
+    $$("#hero-dots button").forEach((b, n) => b.classList.toggle("on", n === k));
+    let d = x; try { d = await details(x.ref); } catch {}
+    if (S.route !== "home" || this.i !== k) return;
+    const tm = d.tmdb || {};
+    const bd = d.backdrop || tm.backdrop;
+    backdrop(bd || d.poster || tm.poster || "", !bd);
+    const hero = $("#hero"); if (!hero) return;
+    hero.classList.remove("in"); void hero.offsetWidth;
+    hero.innerHTML = `<div class="eyebrow">${t(x.kind === "series" ? "series" : "movies")}${tm.genres && tm.genres.length ? " · " + esc(tm.genres.slice(0, 2).join(" · ")) : ""}</div>
+      <div class="logo">${logoHTML(d, d.title)}</div>
+      <div class="meta">${metaChips(d)}${d.rating ? `<span class="chip rate">★ ${esc(d.rating)}</span>` : ""}</div>
+      <p>${esc(d.description || tm.overview || "")}</p>
+      <div class="hero-acts"><button class="btn primary" data-a="play"><i class="ic ${x.kind === "series" ? "ic-layers" : "ic-play"}"></i>${x.kind === "series" ? t("seasons") : d.resume ? t("resume") : t("play")}</button>
+        <a class="btn" href="#/details/${encodeURIComponent(d.ref)}"><i class="ic ic-info"></i>${t("details")}</a>
+        <button class="btn icon ${d.favorite ? "on" : ""}" data-a="fav" title="${t("favorite")}"><i class="ic ic-star"></i></button></div>`;
+    hero.classList.add("in");
+    hero.onclick = (e) => {
+      const a = e.target.closest("[data-a]")?.dataset.a; if (!a) return;
+      if (a === "play") x.kind === "series" ? (location.hash = "#/details/" + encodeURIComponent(x.ref)) : play(x.ref);
+      if (a === "fav") toggleFav(x.ref, e.target.closest(".btn"));
+    };
+  },
+};
 function dragScroll(el) {
   el.addEventListener("wheel", (e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { el.scrollLeft += (LANG === "ar" ? -1 : 1) * e.deltaY; e.preventDefault(); } }, { passive: false });
 }
@@ -496,11 +559,18 @@ const Live = {
       <div class="acts" style="margin-top:12px">
         <button class="btn primary" data-a="play"><i class="ic ic-full"></i>${t("fullscreen")}</button>
         <button class="btn ${x.favorite ? "on" : ""}" data-a="fav"><i class="ic ic-star"></i>${t("favorite")}</button>
-        <button class="btn" data-a="search"><i class="ic ic-search"></i>${t("search")}</button>
+        <button class="btn ${S.settings.live_preview !== false ? "on-prev" : ""}" data-a="prev"><i class="ic ic-live"></i>${S.settings.live_preview !== false ? t("previewStop") : t("previewStart")}</button>
       </div>`;
     nn.onclick = (ev) => {
       const a = ev.target.closest("[data-a]")?.dataset.a; if (!a) return;
-      if (a === "play") play(x.ref); if (a === "fav") toggleFav(x.ref, ev.target.closest(".btn")); if (a === "search") location.hash = "#/search";
+      if (a === "play") play(x.ref); if (a === "fav") toggleFav(x.ref, ev.target.closest(".btn"));
+      if (a === "prev") {
+        const on = S.settings.live_preview === false;
+        api("settings_save", { live_preview: on }).then((r) => Object.assign(S.settings, r)).catch(() => {});
+        S.settings.live_preview = on;
+        if (on) this.preview(x.ref); else { this.stopPreview(); $("#pv").classList.remove("native"); $("#pv").innerHTML = `<div class="idle"><div>${x.poster ? imgTag(x) : ""}<b>${esc(x.title)}</b><div>${t("previewOff")}</div></div></div>`; }
+        this.drawNN(x, e);
+      }
     };
   },
   key(e) {
@@ -524,7 +594,8 @@ views.details = async (v, [ref]) => {
   bar(x.title, [["Esc", t("keysBack")], ["Enter", t("keysPlay")], ["F", t("keysFav")]], "");
   const draw = (d) => {
     const tm = d.tmdb || {};
-    backdrop(d.backdrop || tm.backdrop || "");
+    const bd = d.backdrop || tm.backdrop;
+    backdrop(bd || d.poster || tm.poster || "", !bd);
     $("#det-body").innerHTML = `<div class="det-top">
         <div>${posterHTML(Object.assign({}, d, { poster: d.poster || tm.poster }))}</div>
         <div>
@@ -614,46 +685,78 @@ views.favorites = async (v, [tab]) => {
   Object.values(f).forEach(remember); const rows = f[tab] || [];
   bar(t("favorites"), [["Esc", t("keysBack")]], `${rows.length} ${t("items")}`);
   $("#fv").innerHTML = !rows.length ? `<div class="empty"><i class="ic ic-star" style="width:44px;height:44px;color:var(--gold)"></i><b>${t("empty")}</b></div>`
-    : tab === "live" ? `<div class="res-live">${rows.map((x) => `<div class="row ch" data-ref="${esc(x.ref)}"><span class="logo">${esc(initials(x.title).slice(0, 3))}</span><span class="t">${esc(x.title)}</span><span class="fav"><i class="ic ic-star-fill"></i></span></div>`).join("")}</div>`
+    : tab === "live" ? `<div class="res-live">${rows.map((x) => `<div class="row ch" data-ref="${esc(x.ref)}"><span class="logo">${x.poster ? imgTag(x) : esc(initials(x.title).slice(0, 3))}</span><span class="t">${esc(x.title)}</span><span class="fav"><i class="ic ic-star-fill"></i></span></div>`).join("")}</div>`
     : `<div class="res-grid">${rows.map((x) => posterHTML(x)).join("")}</div>`;
   $("#fv").onclick = (e) => { const el = e.target.closest("[data-ref]"); if (!el) return; const x = S.view.get(el.dataset.ref); x.kind === "live" || x.kind === "episode" ? play(x.ref) : (location.hash = "#/details/" + encodeURIComponent(x.ref)); };
 };
 
 /* ------------------------------------------------------------------ sources */
 const TYPE_LABEL = { stalker: "Stalker / MAG", xtream: "Xtream Codes", m3u: "M3U" };
+const TYPE_ICON = { stalker: "ic-live", xtream: "ic-sources", m3u: "ic-list" };
 views.sources = (v) => {
-  backdrop("");
-  v.appendChild(h(`<section class="sources"><div class="sources-head"><div><div class="eyebrow">ULTRA STALKER</div><h1 class="h-title">${t("yourSources")}</h1><div class="muted">${t("sourcesSub")}</div></div>
-    <button class="btn primary" style="margin-inline-start:auto" id="add"><i class="ic ic-plus"></i>${t("addSource")}</button></div><div class="src-grid" id="srcs"></div></section>`));
-  bar(t("sources"), [["Enter", t("connect")]], `${S.profiles.length}`);
-  $("#add").onclick = () => sourceForm();
-  drawSources();
+  backdrop(""); document.body.classList.add("dim");
+  const first = !S.profiles.length;
+  v.appendChild(h(`<section class="sources ${first ? "first" : ""}">
+    <div class="sources-head">
+      <div class="brand-mark"><svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#35d39b"/><stop offset="1" stop-color="#e0464f"/></linearGradient></defs><rect x="3" y="3" width="42" height="42" rx="13" fill="none" stroke="url(#lg2)" stroke-width="3"/><path d="M17 15v12a7 7 0 0 0 14 0V15" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><circle cx="24" cy="36.5" r="2.3" fill="#35d39b"/></svg></div>
+      <div><div class="eyebrow">Ultra Stalker</div><h1 class="h-title">${first ? t("welcome") : t("yourSources")}</h1><div class="muted">${first ? t("welcomeSub") : t("sourcesSub")}</div></div>
+      ${first ? "" : `<button class="btn primary" style="margin-inline-start:auto" id="add"><i class="ic ic-plus"></i>${t("addSource")}</button>`}
+    </div>
+    <div class="${first ? "type-grid" : "src-grid"}" id="srcs"></div>
+    <p class="vault-note"><i class="ic ic-lock"></i>${t("sourcesSub")}</p>
+  </section>`));
+  bar(t("sources"), [["Enter", t("connect")]], first ? "" : `${S.profiles.length}`);
+  $("#add")?.addEventListener("click", () => sourceForm());
+  first ? drawTypes() : drawSources();
 };
+function drawTypes() {
+  const g = $("#srcs");
+  g.innerHTML = ["stalker", "xtream", "m3u"].map((k) => `<button class="type-card" data-k="${k}">
+    <span class="tc-ic"><i class="ic ${TYPE_ICON[k]}"></i></span><b>${TYPE_LABEL[k]}</b><span class="muted">${t("type_" + k)}</span>
+    <span class="btn primary"><i class="ic ic-plus"></i>${t("addSource")}</span></button>`).join("");
+  g.onclick = (e) => { const c = e.target.closest(".type-card"); if (c) sourceForm(null, c.dataset.k); };
+}
 function drawSources() {
   const g = $("#srcs"); if (!g) return;
-  g.innerHTML = S.profiles.map((p) => `<div class="src ${S.connected && S.connected.name === p.name ? "active" : ""}" data-n="${esc(p.name)}">
-      <div class="type"><i class="ic ${p.type === "m3u" ? "ic-list" : p.type === "xtream" ? "ic-sources" : "ic-live"}"></i>${TYPE_LABEL[p.type] || p.type}${S.connected && S.connected.name === p.name ? `<span style="margin-inline-start:auto;color:var(--emerald)"><i class="live-dot"></i>${t("active")}</span>` : ""}</div>
-      <h3>${esc(p.name)}</h3><div class="host" dir="ltr">${esc(p.host)}</div><div class="muted" dir="ltr" style="font-size:13px">${esc(p.mac || p.user || "")}</div>
-      <div class="foot"><button class="btn primary" data-a="connect"><i class="ic ic-play"></i>${t("connect")}</button><span class="sp"></span>
+  const on = (p) => S.connected && S.connected.name === p.name;
+  g.innerHTML = S.profiles.map((p) => `<div class="src ${on(p) ? "active" : ""}" data-n="${esc(p.name)}">
+      <div class="type"><span class="tc-ic sm"><i class="ic ${TYPE_ICON[p.type] || "ic-live"}"></i></span>${TYPE_LABEL[p.type] || p.type}${on(p) ? `<span class="badge-on"><i class="live-dot"></i>${t("active")}</span>` : ""}</div>
+      <h3>${esc(p.name)}</h3>
+      <div class="host" dir="ltr">${esc(p.host)}</div>
+      <div class="cred" dir="ltr">${esc(p.mac || p.user || "")}</div>
+      <div class="foot"><button class="btn primary" data-a="connect"><i class="ic ic-play"></i>${on(p) ? t("open") : t("connect")}</button><span class="sp"></span>
         <button class="btn icon" data-a="edit" title="${t("edit")}"><i class="ic ic-edit"></i></button><button class="btn icon danger" data-a="del" title="${t("delete")}"><i class="ic ic-trash"></i></button></div></div>`).join("")
-    + `<div class="src add" data-a="add"><i class="ic ic-plus"></i><h3>${t("addSource")}</h3><div class="muted">Stalker · Xtream · M3U</div></div>`;
+    + `<button class="src add" data-a="add"><span class="tc-ic"><i class="ic ic-plus"></i></span><h3>${t("addSource")}</h3><div class="muted">Stalker · Xtream · M3U</div></button>`;
   g.onclick = async (e) => {
     const card = e.target.closest(".src"); if (!card) return; const a = e.target.closest("[data-a]")?.dataset.a || "connect";
     if (card.classList.contains("add")) return sourceForm();
     const name = card.dataset.n;
     if (a === "edit") { try { sourceForm(await api("profile", name)); } catch (er) { toast(er.message, true); } return; }
-    if (a === "del") { if (!confirm(t("confirmDelete"))) return; try { S.profiles = await api("profile_delete", name); if (S.connected && S.connected.name === name) disconnected(); drawSources(); toast(t("deleted")); } catch (er) { toast(er.message, true); } return; }
+    if (a === "del") {
+      if (!(await askConfirm(t("confirmDelete"), name, t("delete")))) return;
+      try { S.profiles = await api("profile_delete", name); if (S.connected && S.connected.name === name) disconnected(); route(); toast(t("deleted")); } catch (er) { toast(er.message, true); } return;
+    }
+    if (S.connected && S.connected.name === name) { location.hash = "#/home"; return; }
     card.classList.add("busy"); toast(t("connecting"));
     try { connectedTo(await api("connect", name)); location.hash = "#/home"; } catch (er) { toast(er.message, true); } finally { card.classList.remove("busy"); }
   };
+}
+function askConfirm(title, detail, okLabel) {
+  return new Promise((resolve) => {
+    const w = h(`<div class="modal-wrap"><div class="modal glass edge confirm"><h2>${esc(title)}</h2>${detail ? `<p class="sub">${esc(detail)}</p>` : ""}
+      <div class="row-acts"><button class="btn danger" data-v="1">${esc(okLabel || t("delete"))}</button><button class="btn" data-v="0">${t("cancel")}</button></div></div></div>`);
+    const done = (v) => { w.remove(); resolve(v); };
+    w.addEventListener("click", (e) => { const b = e.target.closest("[data-v]"); if (b) done(b.dataset.v === "1"); else if (e.target === w) done(false); });
+    document.body.appendChild(w); $("[data-v='0']", w).focus();
+  });
 }
 function connectedTo(c) {
   S.connected = c; S.cats = {}; S.cat = {}; S.items.clear(); S.det.clear(); S.view.clear();
   S.profiles.forEach((p) => (p.active = p.name === c.name)); toast(t("connected") + " · " + c.name);
 }
 function disconnected() { S.connected = null; S.cats = {}; S.items.clear(); }
-function sourceForm(p) {
-  const edit = !!p; p = p || { type: "stalker", name: "", url: "", mac: "00:1A:79:", username: "" };
+function sourceForm(p, preset) {
+  const edit = !!p; p = p || { type: preset || "stalker", name: "", url: "", mac: "00:1A:79:", username: "" };
   let type = p.type;
   const wrap = h(`<div class="modal-wrap"><form class="modal glass edge" autocomplete="off">
     <h2>${edit ? t("editSource") : t("addSource")}</h2><p class="sub">${t("sourcesSub")}</p>
@@ -694,31 +797,64 @@ function sourceForm(p) {
 views.settings = (v) => {
   backdrop(""); document.body.classList.add("dim");
   const st = S.settings;
-  v.appendChild(h(`<section class="std"><div class="std-head"><h1 class="h-title">${t("settings")}</h1></div><div class="set-grid">
-    <div class="set-card glass"><h3><i class="ic ic-lang"></i>${t("setLang")}</h3><p>${t("setLangSub")}</p>
-      <div class="tabs" data-set="ui_language"><button data-v="ar">${t("arabic")}</button><button data-v="en">${t("english")}</button></div></div>
-    <div class="set-card glass"><h3><i class="ic ic-movies"></i>${t("setMeta")}</h3><p>${t("setMetaSub")}</p>
-      <div class="field"><label>${t("metaLang")}</label><div class="tabs" data-set="tmdb_language"><button data-v="ar">${t("arabic")}</button><button data-v="en">${t("english")}</button></div></div>
-      <div class="field"><label>${t("tmdbKey")}</label><input class="input" id="tmdbkey" dir="ltr" type="password" placeholder="${S.hasKey ? "••••••••••••" : ""}"><span class="muted" style="font-size:13px">${t("tmdbKeySub")}</span></div>
-      <button class="btn" id="savekey">${t("save")}</button></div>
-    <div class="set-card glass"><h3><i class="ic ic-play"></i>${t("setPlayer")}</h3><p>${t("setPlayerSub")}</p>
-      <div class="field"><div class="tabs" data-set="player"><button data-v="mpv">mpv</button><button data-v="vlc">VLC</button></div></div>
-      <div class="field"><label>${t("livePrev")}</label><div class="tabs" data-set="live_preview"><button data-v="true">${t("on")}</button><button data-v="false">${t("off")}</button></div></div></div>
-    <div class="set-card glass about"><h3><i class="ic ic-info"></i>${t("about")}</h3>
-      <div>Ultra Stalker Desktop</div><div>${t("version")}: <b>${esc(S.version)}</b></div><div>${t("design")}: <b>${esc(S.author)}</b></div></div>
+  const seg = (k, opts) => `<div class="tabs" data-set="${k}">${opts.map(([v, l]) => `<button data-v="${v}">${l}</button>`).join("")}</div>`;
+  const row = (label, sub, ctrl) => `<div class="set-row"><div><b>${label}</b>${sub ? `<small>${sub}</small>` : ""}</div>${ctrl}</div>`;
+  v.appendChild(h(`<section class="std settings"><div class="std-head"><div><div class="eyebrow">Ultra Stalker</div><h1 class="h-title">${t("settings")}</h1></div></div>
+  <div class="set-grid">
+    <div class="set-card glass">
+      <h3><i class="ic ic-sources"></i>${t("currentSource")}</h3>
+      ${S.connected ? `<div class="cur-src"><span class="tc-ic"><i class="ic ${TYPE_ICON[S.connected.type] || "ic-live"}"></i></span><div><b>${esc(S.connected.name)}</b><small dir="ltr">${esc(S.connected.host)}</small></div><span class="badge-on"><i class="live-dot"></i>${t("connected")}</span></div>
+        <div class="set-acts"><a class="btn" href="#/sources">${t("changeSource")}</a><button class="btn danger" data-a="disconnect">${t("disconnect")}</button></div>`
+        : `<p>${t("notConnected")}</p><div class="set-acts"><a class="btn primary" href="#/sources">${t("sources")}</a></div>`}
+    </div>
+    <div class="set-card glass">
+      <h3><i class="ic ic-lang"></i>${t("setLang")}</h3>
+      ${row(t("setLang"), t("setLangSub"), seg("ui_language", [["ar", t("arabic")], ["en", t("english")]]))}
+      ${row(t("metaLang"), t("setMetaSub"), seg("tmdb_language", [["ar", t("arabic")], ["en", t("english")]]))}
+    </div>
+    <div class="set-card glass">
+      <h3><i class="ic ic-play"></i>${t("setPlayer")}</h3>
+      ${row(t("playerEngine"), t("setPlayerSub"), seg("player", [["mpv", "mpv"], ["vlc", "VLC"]]))}
+      ${row(t("livePrev"), "", seg("live_preview", [["true", t("on")], ["false", t("off")]]))}
+      ${row(t("autoNext"), t("autoNextSub"), seg("autoplay_next", [["true", t("on")], ["false", t("off")]]))}
+    </div>
+    <div class="set-card glass">
+      <h3><i class="ic ic-movies"></i>${t("setMeta")}</h3>
+      <p>${t("tmdbKeySub")}</p>
+      <div class="key-row"><input class="input" id="tmdbkey" dir="ltr" type="password" placeholder="${S.hasKey ? "••••••••••••••••" : t("tmdbKey")}"><button class="btn" id="savekey">${t("save")}</button></div>
+    </div>
+    <div class="set-card glass">
+      <h3><i class="ic ic-layers"></i>${t("storage")}</h3>
+      <p>${t("clearCacheSub")}</p>
+      <div class="set-acts"><button class="btn" data-a="clearcache"><i class="ic ic-trash"></i>${t("clearCache")}</button></div>
+    </div>
+    <div class="set-card glass keys">
+      <h3><i class="ic ic-info"></i>${t("shortcuts")}</h3>
+      <ul>${[["Enter", t("keysPlay")], ["Esc", t("keysBack")], ["F", t("keysFav")], ["C", t("keysCats")], ["/", t("keysSearch")], ["F11", t("keysFull")], ["Space", t("pauseKey")], ["← →", t("seekKey")]].map(([k, l]) => `<li><kbd>${k}</kbd><span>${l}</span></li>`).join("")}</ul>
+    </div>
+    <div class="set-card glass about">
+      <h3><i class="ic ic-info"></i>${t("about")}</h3>
+      <div class="about-brand"><b>Ultra Stalker</b><span>Desktop · ${t("version")} ${esc(S.version)}</span></div>
+      <div>${t("design")}: <b>${esc(S.author)}</b></div>
+    </div>
   </div></section>`));
-  bar(t("settings"), [["Esc", t("keysBack")]], "");
-  const cur = { ui_language: LANG, tmdb_language: st.tmdb_language || LANG, player: st.player || "mpv", live_preview: String(st.live_preview !== false) };
+  bar(t("settings"), [["Esc", t("keysBack")]], "v" + S.version);
+  const cur = { ui_language: LANG, tmdb_language: st.tmdb_language || LANG, player: st.player || "mpv", live_preview: String(st.live_preview !== false), autoplay_next: String(st.autoplay_next !== false) };
   $$("[data-set]").forEach((g) => {
     const k = g.dataset.set; $$("button", g).forEach((b) => b.classList.toggle("on", b.dataset.v === cur[k]));
     g.onclick = async (e) => {
-      const b = e.target.closest("button"); if (!b) return; let val = b.dataset.v; if (k === "live_preview") val = val === "true";
+      const b = e.target.closest("button"); if (!b) return; let val = b.dataset.v; if (val === "true" || val === "false") val = val === "true";
       try { const r = await api("settings_save", { [k]: val }); Object.assign(S.settings, r); S.det.clear(); toast(t("saved")); } catch (er) { toast(er.message, true); return; }
       if (k === "ui_language") { LANG = val; applyLang(); }
       route();
     };
   });
-  $("#savekey").onclick = async () => { try { const r = await api("settings_save", { tmdb_api_key: $("#tmdbkey").value }); S.hasKey = r.has_tmdb_key; S.det.clear(); toast(t("saved")); } catch (er) { toast(er.message, true); } };
+  $("#savekey").onclick = async () => { try { const r = await api("settings_save", { tmdb_api_key: $("#tmdbkey").value }); S.hasKey = r.has_tmdb_key; S.det.clear(); toast(t("saved")); route(); } catch (er) { toast(er.message, true); } };
+  $(".set-grid").addEventListener("click", async (e) => {
+    const a = e.target.closest("[data-a]")?.dataset.a; if (!a) return;
+    if (a === "disconnect") { try { await api("disconnect"); disconnected(); toast(t("disconnected")); location.hash = "#/sources"; } catch (er) { toast(er.message, true); } }
+    if (a === "clearcache") { try { await api("clear_cache"); S.cats = {}; S.items.clear(); S.det.clear(); toast(t("cacheCleared")); } catch (er) { toast(er.message, true); } }
+  });
 };
 
 /* ------------------------------------------------------------------ actions */
@@ -740,7 +876,7 @@ async function toggleFav(ref, btn) {
 document.addEventListener("keydown", (e) => {
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "");
   if (e.key === "Escape") {
-    if ($(".modal-wrap")) { $(".modal-wrap").remove(); return; }
+    if ($(".modal-wrap")) { const c = $(".modal-wrap [data-v='0']"); c ? c.click() : $(".modal-wrap").remove(); return; }
     if (!$("#drawer").hidden) { closeDrawer(); return; }
     if (typing) { document.activeElement.blur(); return; }
     if (S.route !== "home") history.length > 1 ? history.back() : (location.hash = "#/home");
@@ -765,7 +901,7 @@ async function boot() {
   LANG = S.settings.ui_language === "en" ? "en" : "ar"; applyLang();
   const last = S.settings.last_profile;
   if (!S.connected && last && S.profiles.some((p) => p.name === last)) {
-    $("#view").innerHTML = `<div class="empty" style="height:100%"><div class="spinner"></div><b>${t("connecting")}</b><span>${esc(last)}</span></div>`;
+    $("#sp-msg").textContent = `${t("connecting")} ${last}`;
     try { connectedTo(await api("connect", last)); } catch (e) { toast(e.message, true); location.hash = "#/sources"; route(); return; }
     location.hash = "#/home"; route(); return;
   }
@@ -773,7 +909,8 @@ async function boot() {
   route();
 }
 function start(bridge) {
-  BR = bridge; BR.reply.connect(onReply); BR.push.connect(onPush); boot().catch((e) => toast(e.message, true));
+  BR = bridge; BR.reply.connect(onReply); BR.push.connect(onPush);
+  boot().catch((e) => toast(e.message, true)).finally(() => setTimeout(() => $("#splash")?.classList.add("off"), 250));
 }
 if (window.qt && window.qt.webChannelTransport) {
   new QWebChannel(qt.webChannelTransport, (ch) => start(ch.objects.bridge));
