@@ -6,6 +6,7 @@
 /* ------------------------------------------------------------------ strings */
 const STR = {
   ar: {
+    featured: "تابع المشاهدة", browseLibrary: "تصفّح المكتبة", navigation: "التنقل",
     home: "الرئيسية", live: "البث المباشر", movies: "الأفلام", series: "المسلسلات", search: "البحث", favorites: "المفضلة",
     cloud: "كتالوج Ultra Stalker", cloudServers: "السيرفرات", cloudAccounts: "الحسابات", more: "عرض المزيد",
     sources: "المصادر", settings: "الإعدادات", categories: "الأقسام", all: "الكل", channels: "القنوات",
@@ -40,6 +41,7 @@ const STR = {
     days: ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"],
   },
   en: {
+    featured: "Continue watching", browseLibrary: "Browse library", navigation: "Navigation",
     home: "Home", live: "Live TV", movies: "Movies", series: "Series", search: "Search", favorites: "Favorites",
     cloud: "Ultra Stalker catalog", cloudServers: "Servers", cloudAccounts: "Accounts", more: "Load more",
     sources: "Sources", settings: "Settings", categories: "Categories", all: "All", channels: "Channels",
@@ -248,7 +250,17 @@ function applyLang() {
   document.documentElement.lang = LANG; document.documentElement.dir = LANG === "ar" ? "rtl" : "ltr";
   $$("[data-t]").forEach((el) => (el.textContent = t(el.dataset.t)));
 }
-function markRail(name) { $$("#rail a[data-nav]").forEach((a) => a.classList.toggle("on", a.dataset.nav === name)); }
+function markRail(name) {
+  $("#rail").setAttribute("aria-label", t("navigation"));
+  $$("#rail a[data-nav]").forEach((a) => {
+    const key = a.dataset.nav;
+    a.title = t(key);
+    a.setAttribute("aria-label", t(key));
+    a.classList.toggle("on", key === name);
+    if (key === name) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  });
+}
 
 function posterHTML(x, opts = {}) {
   const img = imgTag(x);
@@ -301,23 +313,25 @@ function route() {
   closeDrawer();
   document.body.classList.remove("dim");
   if (name !== S.route) backdrop("");
-  S.route = name; markRail(name === "details" ? (S.view.get(parts[1])?.kind === "series" ? "series" : "movies") : name);
+  S.route = name;
+  markRail(name === "details" ? (S.view.get(decodeURIComponent(parts[1] || ""))?.kind === "series" ? "series" : "movies") : name === "cloud" ? "sources" : name);
   const v = $("#view"); v.innerHTML = "";
   Promise.resolve((views[name] || views.home)(v, parts.slice(1).map(decodeURIComponent))).catch((e) => toast(e.message, true));
 }
 window.addEventListener("hashchange", route);
 
 /* ------------------------------------------------------------------ home */
-const TILES = [["live", "ic-live"], ["movies", "ic-movies"], ["series", "ic-series"], ["favorites", "ic-star"], ["search", "ic-search"], ["sources", "ic-sources"], ["settings", "ic-settings"]];
+const TILES = [["live", "ic-live"], ["movies", "ic-movies"], ["series", "ic-series"], ["favorites", "ic-star"]];
 views.home = (v) => {
   if (!S.connected && !S.profiles.length) { location.hash = "#/sources"; return; }
   const page = h(`<section class="home">
     <div class="home-hero">
       <div class="hero-info" id="hero"><div class="hero-skel"><i class="skel"></i><i class="skel"></i><i class="skel"></i></div></div>
       <div class="clock glass" id="clock"></div>
+      <div class="hero-art" aria-hidden="true" id="hero-art"></div>
       <div class="hero-dots" id="hero-dots"></div>
     </div>
-    <nav class="tiles">${TILES.map(([k, ic]) => `<a class="tile" href="#/${k}"><i class="ic ${ic}"></i><span>${t(k)}</span></a>`).join("")}</nav>
+    <nav class="tiles">${TILES.map(([k, ic]) => `<a class="tile" data-section="${k}" href="#/${k}"><span class="tile-icon"><i class="ic ${ic}"></i></span><span>${t(k)}</span><i class="ic ic-back tile-arrow" aria-hidden="true"></i></a>`).join("")}</nav>
     <div class="panels" id="panels">${[0, 1, 2].map(() => `<section class="panel glass"><div class="spinner" style="margin:70px auto"></div></section>`).join("")}</div>
   </section>`);
   v.appendChild(page);
@@ -332,7 +346,7 @@ views.home = (v) => {
   cleanup = () => { clearInterval(iv); clearInterval(Hero.timer); };
   bar(S.connected ? S.connected.name : "Ultra Stalker", [["", t("live"), "red", () => go("live")], ["", t("movies"), "green", () => go("movies")], ["", t("series"), "yellow", () => go("series")], ["", t("search"), "blue", () => go("search")]], "v" + S.version);
   if (!S.connected) {
-    $("#hero").innerHTML = `<div class="logo"><div class="t">Ultra Stalker</div></div><p>${t("connectFirst")}</p><a class="btn primary" href="#/sources"><i class="ic ic-sources"></i>${t("sources")}</a>`;
+    $("#hero").innerHTML = `<img class="hero-brand" src="assets/ultra-stalker-brand.png" alt="Ultra Stalker"><p>${t("connectFirst")}</p><a class="btn primary" href="#/sources"><i class="ic ic-sources"></i>${t("sources")}</a>`;
     $("#panels").innerHTML = ""; return;
   }
   const historyRows = api("history", 60);
@@ -382,7 +396,7 @@ const Hero = {
     this.picks = remember(rows.filter((x) => x.kind === "movies" || x.kind === "series").slice(0, 5));
     this.i = 0;
     if (!this.picks.length) {
-      $("#hero").innerHTML = `<div class="logo"><div class="t">Ultra Stalker</div></div>`;
+      $("#hero").innerHTML = `<img class="hero-brand" src="assets/ultra-stalker-brand.png" alt="Ultra Stalker"><a class="btn primary" href="#/movies"><i class="ic ic-movies"></i>${t("browseLibrary")}</a>`;
       return;
     }
     $("#hero-dots").innerHTML = this.picks.map((_, k) => `<button data-k="${k}" aria-label="${k + 1}"></button>`).join("");
@@ -398,12 +412,25 @@ const Hero = {
     if (current !== routeId || this.i !== k) return;
     const tm = d.tmdb || {};
     const bd = d.backdrop || tm.backdrop;
-    backdrop(bd || d.poster || tm.poster || "");
+    const heroArt = $("#hero-art");
+    if (bd) {
+      const src = artUrl(bd);
+      const image = new Image();
+      image.onload = () => {
+        if (current === routeId && this.i === k) heroArt.style.backgroundImage = `url(${JSON.stringify(src)})`;
+      };
+      image.onerror = () => {
+        if (current === routeId && this.i === k) heroArt.style.removeProperty("background-image");
+      };
+      image.src = src;
+    } else {
+      heroArt.style.removeProperty("background-image");
+    }
     const hero = $("#hero"); if (!hero) return;
-    hero.innerHTML = `<div class="eyebrow">${t(x.kind === "series" ? "series" : "movies")}${tm.genres && tm.genres.length ? " · " + esc(tm.genres.slice(0, 2).join(" · ")) : ""}</div>
+    hero.innerHTML = `<div class="featured-label">${t("featured")}</div><div class="eyebrow">${t(x.kind === "series" ? "series" : "movies")}${tm.genres && tm.genres.length ? " · " + esc(tm.genres.slice(0, 2).join(" · ")) : ""}</div>
       <div class="logo">${logoHTML(d, d.title)}</div>
       <div class="meta">${metaChips(d)}${d.rating ? `<span class="chip rate">★ ${esc(d.rating)}</span>` : ""}</div>
-      <p>${esc(d.description || tm.overview || "")}</p>
+      <p dir="auto">${esc(d.description || tm.overview || "")}</p>
       <div class="hero-acts"><button class="btn primary" data-a="play"><i class="ic ${x.kind === "series" ? "ic-layers" : "ic-play"}"></i>${x.kind === "series" ? t("seasons") : d.resume ? t("resume") : t("play")}</button>
         <a class="btn" href="#/details/${encodeURIComponent(d.ref)}"><i class="ic ic-info"></i>${t("details")}</a>
         <button class="btn icon ${d.favorite ? "on" : ""}" data-a="fav" title="${t("favorite")}"><i class="ic ic-star"></i></button></div>`;
@@ -429,6 +456,7 @@ const Grid = {
     document.body.classList.add("dim"); backdrop("");
     v.appendChild(h(`<section class="g3">
       <div class="g3-main">
+        <h1 class="section-title">${t(kind)}</h1>
         <div class="g3-head">
           <button class="btn cat-btn" id="cat-btn"><i class="ic ic-list"></i><span id="cat-name">${t("categories")}</span></button>
           <input class="input filter" id="flt" placeholder="${t("filter")}">
@@ -448,8 +476,9 @@ const Grid = {
     try { cats = await categories(kind); } catch (e) { grid.innerHTML = `<div class="empty"><b>${esc(e.message)}</b></div>`; return; }
     if (!grid.isConnected) return;
     const remembered = S.cat[kind];
-    const cat = cats.find((c) => c.id === remembered) || (remembered === "" ? { id: "", title: t("all") } : null);
-    if (cat) this.load(cat); else { grid.innerHTML = ""; this.spotEmpty(); this.drawer(true); }
+    const all = { id: "", title: t("all") };
+    const cat = remembered === "" ? all : cats.find((c) => c.id === remembered) || cats[0] || all;
+    this.load(cat);
   },
   keys() {
     this.bar();
@@ -579,11 +608,12 @@ const Live = {
     this.sel = null; this.rows = []; this.cats = [];
     document.body.classList.add("dim"); backdrop("");
     v.appendChild(h(`<section class="live3">
+      <h1 class="section-title">${t("live")}</h1>
       <div class="col"><div class="col-h"><h2>${t("categories")}</h2><span class="count" id="cat-count"></span></div><div class="list" id="lcats"><div class="spinner"></div></div></div>
       <div class="col"><div class="col-h"><h2 id="lcat-name">${t("channels")}</h2><span class="count" id="ch-count"></span></div>
         <input class="input" id="lflt" placeholder="${t("filter")}"><div class="list" id="lch"></div></div>
       <div class="col">
-        <div class="preview" id="pv"><div class="idle"><div><b>${t("pickChannel")}</b></div></div></div>
+        <div class="preview" id="pv"><div class="idle"><div><i class="ic ic-live preview-icon" aria-hidden="true"></i><b>${t("pickChannel")}</b></div></div></div>
         <div class="nownext glass" id="nn"></div>
       </div></section>`));
     cleanup = () => { this.playing = false; this.stopPreview(); clearInterval(this.epgTimer); window.removeEventListener("resize", this.onResize); };
@@ -835,8 +865,8 @@ views.sources = (v) => {
   const first = !S.profiles.length;
   v.appendChild(h(`<section class="sources ${first ? "first" : ""}">
     <div class="sources-head">
-      <div class="brand-mark"><svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#35d39b"/><stop offset="1" stop-color="#e0464f"/></linearGradient></defs><rect x="3" y="3" width="42" height="42" rx="13" fill="none" stroke="url(#lg2)" stroke-width="3"/><path d="M17 15v12a7 7 0 0 0 14 0V15" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><circle cx="24" cy="36.5" r="2.3" fill="#35d39b"/></svg></div>
-      <div><div class="eyebrow">Ultra Stalker</div><h1 class="h-title">${first ? t("welcome") : t("yourSources")}</h1><div class="muted">${first ? t("welcomeSub") : t("sourcesSub")}</div></div>
+      <div class="brand-mark"><img src="assets/ultra-stalker-brand.png" alt=""></div>
+      <div><h1 class="h-title">${first ? t("welcome") : t("yourSources")}</h1><div class="muted">${first ? t("welcomeSub") : t("sourcesSub")}</div></div>
       <a class="btn" href="#/cloud" style="margin-inline-start:auto">${t("cloud")}</a>
       ${first ? "" : `<button class="btn primary" id="add"><i class="ic ic-plus"></i>${t("addSource")}</button>`}
     </div>

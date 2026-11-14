@@ -73,10 +73,10 @@ def clock(sec: float) -> str:
 
 OSD_QSS = """
 QFrame#osd {
-  background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #0c1a15, stop:1 #040a08);
-  border-top: 2px solid qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #35d39b, stop:1 #e0464f);
+  background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #171e28, stop:1 #10151c);
+  border-top: 1px solid #44544d;
 }
-QFrame#topbar { background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #050b09, stop:1 #0a1511); }
+QFrame#topbar { background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #10151c, stop:1 #171e28); }
 QLabel { color: #f1f5f3; background: transparent; font-family: "Cairo", "Segoe UI"; }
 QLabel#title { font-size: 21px; font-weight: 800; }
 QLabel#meta { color: #9fb2aa; font-size: 13px; }
@@ -88,10 +88,10 @@ QLabel#status { color: #35d39b; font-size: 13px; font-weight: 700; }
 QToolButton { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 22px; padding: 8px; }
 QToolButton:hover { background: rgba(53,211,155,0.22); border-color: #35d39b; }
 QToolButton:pressed { background: rgba(53,211,155,0.35); }
-QToolButton#main { background: #1fa874; border: 1px solid #5ff0bb; border-radius: 28px; }
-QToolButton#main:hover { background: #29bf86; }
+QToolButton#main { background: #247157; border: 1px solid #71e0b1; border-radius: 28px; }
+QToolButton#main:hover { background: #318b6b; }
 QWidget#ctrlrow { background: transparent; }
-QLabel#poster { background: #0b1714; border: 1px solid rgba(255,255,255,0.16); border-radius: 10px; }
+QLabel#poster { background: #1b242d; border: 1px solid rgba(255,255,255,0.16); border-radius: 10px; }
 QLabel#chip { color: #dfe8e4; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); border-radius: 7px; padding: 2px 9px; font-size: 11.5px; font-weight: 700; }
 QLabel#bigclock { color: #ffffff; font-size: 30px; font-weight: 900; }
 QLabel#date { color: #35d39b; font-size: 12.5px; font-weight: 700; }
@@ -147,7 +147,7 @@ class PlayerView(QWidget):
         self._last_cursor = QPoint()
         self._seeking = False
         self.playing = False
-        self.on_progress_save = None  # callable(item, pos, dur) set by the shell
+        self.on_progress_save = None  # callable(source_key, item, pos, dur) set by the shell
         self.on_finished = None       # callable(item) set by the shell (autoplay next)
         self._ui.connect(lambda fn: fn())
 

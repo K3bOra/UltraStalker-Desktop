@@ -334,12 +334,20 @@
       "size": 0
     },
     "ultrastalker_desktop/ui/app/app.css": {
-      "sha256": "69b554964d8919cb0b2ae6f3ed56d522ab4a149137e06643fb84adefc1fa7e46",
-      "size": 52291
+      "sha256": "bf6e6e631343e34d795d368b1d9cc7bb7d546b310a67f0f25155b6718855a387",
+      "size": 59966
     },
     "ultrastalker_desktop/ui/app/app.js": {
-      "sha256": "9653ab076d4f2f1ca77828c3df7982c4b52ad4c1515d0bca1a2489cd677818ce",
-      "size": 79158
+      "sha256": "6eb738d809bda59297cb384afa577616e4da10952be52813aa24033576c2f08f",
+      "size": 80085
+    },
+    "ultrastalker_desktop/ui/app/assets/palestine-background.webp": {
+      "sha256": "03a8fa45837f229881a3f8646c543c787935d1539f74970275f06256f3b95e3e",
+      "size": 23756
+    },
+    "ultrastalker_desktop/ui/app/assets/ultra-stalker-brand.png": {
+      "sha256": "44dd62f4fdecd4a90c0475d3147a7293606703935e19610e59ff5ce063e256cb",
+      "size": 38816
     },
     "ultrastalker_desktop/ui/app/fonts/OFL-Cairo.txt": {
       "sha256": "aa2b13bf0770c59a7fb7a3b793a7df5162c9cb5ad540ec81b0c0c1385946845d",
@@ -358,8 +366,8 @@
       "size": 33820
     },
     "ultrastalker_desktop/ui/app/index.html": {
-      "sha256": "a3d683bb0c197f644d4fc68cd68d627ed950ba3007177606cdaad5647aef3760",
-      "size": 2821
+      "sha256": "4f4bd60fcf52ec02713e17948442b95a78314d2755c74907347f79ae68e30ef3",
+      "size": 2014
     },
     "ultrastalker_desktop/ui/app/mock.js": {
       "sha256": "42a1dc834258cd59515d7ca3240a7d95abc7fdf0c7f0c30df3ea199a0e007112",
@@ -374,21 +382,21 @@
       "size": 44660
     },
     "ultrastalker_desktop/ui/player_view.py": {
-      "sha256": "11fed8ff0bce376d34c00c11f7b771ed70aa06a3d1f6cf6c04aed152e7673edc",
-      "size": 28992
+      "sha256": "1a2ccaeedf889214cff0d15102bab37182b724c30409b34574f2f94ea679b19f",
+      "size": 28943
     },
     "ultrastalker_desktop/ui/shell.py": {
       "sha256": "e87d49f62acaca2ac6bad4185361974795fbac7329b565742bba8ff9f586bfee",
       "size": 13125
     }
   },
-  "freeze_utc": "2026-11-14T16:28:23.775839Z",
+  "freeze_utc": "2026-11-14T16:39:59.671533Z",
   "product": "Ultra Stalker Desktop",
   "reference": "Ultra Stalker 8.4.1",
   "reference_artifact": "UltraStalker_V7_UPDATE.ipk",
   "reference_artifact_sha256": "d845f917a3a1507c454a7848dd12714ffe720bf568966e0196c06f14f2131876",
   "reference_parity": "behavioral-reference; original 8.4.1 source bytes unavailable",
-  "source_tree_sha256": "aa38c8b081a3f348ef2c87fe0e2f39e9a765f7a4219293354266f33ffe5a9012",
+  "source_tree_sha256": "6826247f8c82eff60b191ebe21e9f9bea4493b645022c0730d9b5de80bc9bb82",
   "status": "source-frozen release candidate",
   "validation": {
     "clean_room": "PASS",
