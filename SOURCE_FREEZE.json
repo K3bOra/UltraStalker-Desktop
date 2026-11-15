@@ -17,6 +17,10 @@
       "sha256": "a54d9a36661225bf72789824f25821a331f4d1e53c875c9455076d9c7199fb94",
       "size": 1221
     },
+    "HANDOFF.md": {
+      "sha256": "9312c8c5059f5fb7fe2a0f06d5cb8183619b2efabc97ff38c7f92eb2f05a9a1b",
+      "size": 2263
+    },
     "README.md": {
       "sha256": "953074d04344918ad3dd022a661e606d4ab396815ee3232074b21daaed9c42e1",
       "size": 3385
@@ -374,13 +378,13 @@
       "size": 9763
     }
   },
-  "freeze_utc": "2026-11-14T04:02:49.006448Z",
+  "freeze_utc": "2026-11-15T19:27:37.340623Z",
   "product": "Ultra Stalker Desktop",
   "reference": "Ultra Stalker 8.4.1",
   "reference_artifact": "UltraStalker_V7_UPDATE.ipk",
   "reference_artifact_sha256": "d845f917a3a1507c454a7848dd12714ffe720bf568966e0196c06f14f2131876",
   "reference_parity": "behavioral-reference; original 8.4.1 source bytes unavailable",
-  "source_tree_sha256": "653e6e26e0dfb33cdaf2bcc6e8d25630c48b1c380be092feb98a493500d3980a",
+  "source_tree_sha256": "8fa426ff843d2b9fd37c0e5e8bed033b24487ffde0cf9b59efdec29fd8477be3",
   "status": "source-frozen release candidate",
   "validation": {
     "clean_room": "PASS",
