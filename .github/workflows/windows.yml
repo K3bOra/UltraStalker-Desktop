@@ -1,0 +1,64 @@
+# Builds the Windows installer (UltraStalker-Setup-<version>.exe) from this branch and
+# the current interface in K3bOra/UltraStalker (web/ + the relay code).
+name: Windows installer
+
+on:
+  push:
+    branches: [v2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get the Ultra Stalker interface
+        uses: actions/checkout@v4
+        with:
+          repository: K3bOra/UltraStalker
+          path: ultrastalker-src
+          sparse-checkout: |
+            web
+            worker/src
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Bundle the interface and test the local server
+        env:
+          ULTRASTALKER_DIR: ultrastalker-src
+        run: |
+          npm run bundle
+          npm test
+
+      - name: Build the installer
+        env:
+          ULTRASTALKER_DIR: ultrastalker-src
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --win nsis --x64 --publish never
+
+      - name: Installer checksum
+        shell: pwsh
+        run: |
+          Get-ChildItem dist\*.exe | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            "$h  $($_.Name)" | Tee-Object -FilePath "$($_.FullName).sha256.txt"
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: UltraStalker-Windows
+          path: |
+            dist/*.exe
+            dist/*.sha256.txt
+          retention-days: 30

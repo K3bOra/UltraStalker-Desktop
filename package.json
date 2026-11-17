@@ -1,0 +1,46 @@
+{
+  "name": "ultra-stalker",
+  "productName": "Ultra Stalker",
+  "version": "2.0.0",
+  "description": "Ultra Stalker for Windows — Live TV, movies and series from your own Portal, Xtream and M3U sources.",
+  "author": "Ahmed L-HadarY",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "main": "app/main.js",
+  "scripts": {
+    "bundle": "node scripts/bundle-web.mjs",
+    "start": "npm run bundle && electron .",
+    "dist": "npm run bundle && electron-builder --win nsis --x64 --publish never",
+    "test": "node --test tests/server.test.js"
+  },
+  "devDependencies": {
+    "electron": "^45.3.3",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.k3bora.ultrastalker",
+    "productName": "Ultra Stalker",
+    "copyright": "Ahmed L-HadarY",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["app/**/*", "package.json"],
+    "extraResources": [{ "from": "bundle", "to": "bundle" }],
+    "asar": true,
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "build/icon.ico",
+      "artifactName": "UltraStalker-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Ultra Stalker",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}
