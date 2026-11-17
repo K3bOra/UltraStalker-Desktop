@@ -41,6 +41,30 @@ jobs:
           npm run bundle
           npm test
 
+      - name: Get VLC (ships inside the program)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $base = "https://download.videolan.org/pub/videolan/vlc/last/win64/"
+          $list = (Invoke-WebRequest $base -UseBasicParsing).Content
+          $zip = [regex]::Match($list, 'vlc-[0-9.]+-win64\.zip').Value
+          if (-not $zip) { throw "VLC download not found" }
+          Write-Host "Downloading $zip"
+          Invoke-WebRequest ($base + $zip) -OutFile vlc.zip -UseBasicParsing
+          Write-Host "SHA256 $((Get-FileHash vlc.zip -Algorithm SHA256).Hash)"
+          Expand-Archive vlc.zip -DestinationPath vlc-unpacked
+          Move-Item (Get-ChildItem vlc-unpacked -Directory | Select-Object -First 1).FullName vlc
+          # Ultra Stalker drives VLC itself: its own windows, skins and translations
+          # aren't needed (English replies are what the program reads).
+          foreach ($d in "locale", "skins", "sdk", "plugins\gui", "plugins\visualization") {
+            if (Test-Path "vlc\$d") { Remove-Item -Recurse -Force "vlc\$d" }
+          }
+          Get-ChildItem vlc -Filter *.exe | Where-Object { $_.Name -notin "vlc.exe", "vlc-cache-gen.exe" } | Remove-Item -Force
+          & .\vlc\vlc-cache-gen.exe .\vlc\plugins
+          if (-not (Test-Path "vlc\plugins\control\liboldrc_plugin.dll")) { throw "VLC remote control module missing" }
+          $mb = [math]::Round(((Get-ChildItem vlc -Recurse | Measure-Object Length -Sum).Sum / 1MB), 1)
+          Write-Host "VLC folder: $mb MB"
+
       - name: Build the installer
         env:
           ULTRASTALKER_DIR: ultrastalker-src

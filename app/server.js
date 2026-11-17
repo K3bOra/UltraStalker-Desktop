@@ -39,6 +39,7 @@ const ISOLATE = {
   "Cross-Origin-Embedder-Policy": "credentialless",
   "Cross-Origin-Resource-Policy": "same-origin",
 };
+const SHORT = new Map();
 const RELAY_PATHS = /^\/(p|ticket|health)$|^\/play\//;
 
 /* The relay secret seals play tickets; one per installation, kept in the user folder. */
@@ -104,6 +105,16 @@ export async function startServer({ webDir, relayFile, appCssFile, userDir, port
       res.writeHead(400).end();
       return;
     }
+    // Short links for VLC (its control line can't carry a 3,000-character ticket).
+    const short = url.pathname.match(/^\/v\/([A-Za-z0-9]{10,24})(?:\.[a-z0-9]{1,5})?$/);
+    if (short) {
+      const target = SHORT.get(short[1]);
+      if (!target) {
+        res.writeHead(404).end();
+        return;
+      }
+      url = new URL(target, origin);
+    }
     try {
       // 1) relay, run locally
       if (RELAY_PATHS.test(url.pathname) || (req.method === "OPTIONS" && url.pathname === "/p")) {
@@ -114,6 +125,7 @@ export async function startServer({ webDir, relayFile, appCssFile, userDir, port
         const init = { method: req.method, headers };
         if (req.method === "POST") init.body = await readBody(req);
         const response = await worker.fetch(new Request(url.toString(), init), env);
+        if (process.env.US_DEBUG) console.log("[relay]", req.method, url.pathname.slice(0, 18), url.search.slice(0, 30), response.status, String(req.headers["user-agent"] || "").slice(0, 30));
         return send(res, req, response);
       }
       // 2) artwork lookups: the online relay keeps the TMDB key
@@ -146,7 +158,14 @@ export async function startServer({ webDir, relayFile, appCssFile, userDir, port
           return;
         }
         const type = TYPES[path.extname(file).toLowerCase()] || "application/octet-stream";
-        const head = Object.assign({ "Content-Type": type, "Cache-Control": type.startsWith("text/html") ? "no-cache" : "max-age=86400" }, ISOLATE);
+        // Always check with the server (it is local, so this costs nothing): a new version
+        // of the program must never run with yesterday's files from the cache.
+        const tag = '"' + st.size.toString(36) + "-" + Math.floor(st.mtimeMs).toString(36) + '"';
+        const head = Object.assign({ "Content-Type": type, "Cache-Control": "no-cache", ETag: tag }, ISOLATE);
+        if (!type.startsWith("text/html") && req.headers["if-none-match"] === tag) {
+          res.writeHead(304, head);
+          return res.end();
+        }
         if (type.startsWith("text/html")) {
           let html = fs.readFileSync(file, "utf8");
           const inject = `<script>document.documentElement.classList.add("us-app");window.US_APP=${JSON.stringify({ version: version || "" })};</script>` + (appCss ? `<style id="usAppCss">${appCss}</style>` : "");
@@ -169,5 +188,16 @@ export async function startServer({ webDir, relayFile, appCssFile, userDir, port
     server.once("error", reject);
     server.listen(port, "127.0.0.1", resolve);
   });
-  return { server, origin };
+  /* A short local link standing for a long one on this same server (kept for the
+     last 64 links). */
+  function shortLink(long) {
+    const u = new URL(long, origin);
+    if (u.origin !== origin) return long;
+    const id = crypto.randomBytes(9).toString("base64url").replace(/[-_]/g, "x");
+    SHORT.set(id, u.pathname + u.search);
+    while (SHORT.size > 64) SHORT.delete(SHORT.keys().next().value);
+    const ext = (u.pathname.match(/\.([a-z0-9]{1,5})$/i) || [])[0] || "";
+    return origin + "/v/" + id + ext;
+  }
+  return { server, origin, shortLink };
 }

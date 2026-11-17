@@ -9,6 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { startServer } from "./server.js";
+import { setupVlc } from "./vlc.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // Fixed port: the saved sources live in the page's storage, which belongs to this address.
@@ -35,7 +36,7 @@ function bundleDir() {
 
 let win = null;
 
-async function createWindow(origin) {
+async function createWindow(origin, shortLink) {
   nativeTheme.themeSource = "dark";
   win = new BrowserWindow({
     width: 1600,
@@ -50,6 +51,7 @@ async function createWindow(origin) {
     titleBarOverlay: { color: "#141210", symbolColor: "#e6cb8c", height: BAR },
     autoHideMenuBar: true,
     webPreferences: {
+      preload: path.join(HERE, "preload.cjs"),
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
@@ -59,6 +61,7 @@ async function createWindow(origin) {
     },
   });
   win.removeMenu();
+  setupVlc({ win, bundle: bundleDir(), shortLink });
   win.once("ready-to-show", () => {
     win.show();
     if (process.env.US_SMOKE) win.webContents.openDevTools({ mode: "detach" });
@@ -92,6 +95,9 @@ async function createWindow(origin) {
 
   // Keep the window controls matching the bar when the page asks (light/dark bar areas).
   win.webContents.on("page-title-updated", (e) => e.preventDefault());
+  // Files come from this computer, so nothing is worth keeping between runs; clearing the
+  // cache makes an updated program start with its own new files.
+  await session.defaultSession.clearCache().catch(() => {});
   await win.loadURL(origin + "/index.html");
 }
 
@@ -104,9 +110,9 @@ app.on("second-instance", () => {
 
 app.whenReady().then(async () => {
   const bundle = bundleDir();
-  let origin;
+  let origin, shortLink;
   try {
-    ({ origin } = await startServer({
+    ({ origin, shortLink } = await startServer({
       webDir: path.join(bundle, "web"),
       relayFile: path.join(bundle, "relay", "index.mjs"),
       appCssFile: path.join(HERE, "desktop-app.css"),
@@ -120,7 +126,7 @@ app.whenReady().then(async () => {
     app.quit();
     return;
   }
-  await createWindow(origin);
+  await createWindow(origin, shortLink);
 });
 
 app.on("window-all-closed", () => app.quit());
