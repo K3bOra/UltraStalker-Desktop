@@ -64,6 +64,7 @@ async function createWindow(origin, shortLink) {
   win.removeMenu();
   const vlc = setupVlc({ win, bundle: bundleDir(), shortLink });
   if (process.env.US_SELFTEST) win.webContents.once("did-finish-load", () => selfTest(vlc).catch((e) => (console.error(e), app.exit(3))));
+  else win.webContents.once("did-finish-load", () => setTimeout(() => vlc.warm(), 1500));
   win.once("ready-to-show", () => {
     win.show();
     if (process.env.US_SMOKE) win.webContents.openDevTools({ mode: "detach" });

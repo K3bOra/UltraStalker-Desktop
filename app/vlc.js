@@ -147,6 +147,7 @@ export function setupVlc({ win, bundle, shortLink }) {
     starting = (async () => {
       kill();
       if (!exe) throw new Error("VLC isn't installed");
+      await pluginCache();
       const port = await freePort();
       try {
         fs.writeFileSync(vlcLog, "");
@@ -189,7 +190,9 @@ export function setupVlc({ win, bundle, shortLink }) {
       // connect to its control port (VLC needs a moment to start)
       const t0 = Date.now();
       let sock = null;
-      while (!sock && Date.now() - t0 < 10000) {
+      // The first start on a computer can be slow (antivirus scanning VLC's files):
+      // keep waiting for this same VLC rather than starting another one.
+      while (!sock && Date.now() - t0 < 45000) {
         if (proc.exitCode !== null) throw new Error("VLC closed right away (" + proc.exitCode + ") " + stderr.trim().split(/\r?\n/).slice(-1)[0]);
         sock = await new Promise((r) => {
           const s = net.connect(port, "127.0.0.1");
@@ -198,7 +201,10 @@ export function setupVlc({ win, bundle, shortLink }) {
         });
         if (!sock) await new Promise((r) => setTimeout(r, 150));
       }
-      if (!sock) throw new Error("VLC's control didn't answer on port " + port);
+      if (!sock) {
+        log("VLC control didn't answer; VLC", proc.exitCode === null ? "still running" : "exited " + proc.exitCode, "· log:", vlcErrors() || "(empty)");
+        throw new Error("VLC's control didn't answer on port " + port);
+      }
       log("VLC control connected on port", port, "after", Date.now() - t0, "ms");
       rc = new Rc(sock);
       await rc.cmd("volume", { timeout: 1500 }); // answers once VLC is ready
@@ -210,6 +216,39 @@ export function setupVlc({ win, bundle, shortLink }) {
       starting = null;
     }
   }
+  /* VLC lists its plugins in plugins.dat; when that list doesn't match the files
+     (fresh install) every start scans ~400 files. Build it once per version here. */
+  async function pluginCache() {
+    const gen = path.join(path.dirname(exe), "vlc-cache-gen.exe");
+    const mark = path.join(LOG_DIR(), "vlc-plugins-" + (version || "x") + ".ok");
+    if (!WIN || !fs.existsSync(gen) || fs.existsSync(mark)) return;
+    const t0 = Date.now();
+    const code = await new Promise((resolve) => {
+      try {
+        const p = spawn(gen, [path.join(path.dirname(exe), "plugins")], { stdio: "ignore", windowsHide: true });
+        const t = setTimeout(() => (p.kill(), resolve("timeout")), 90000);
+        p.on("exit", (c) => (clearTimeout(t), resolve(c)));
+        p.on("error", (e) => (clearTimeout(t), resolve(e.message)));
+      } catch (e) {
+        resolve(e.message);
+      }
+    });
+    log("VLC plugin list built:", code, "in", Date.now() - t0, "ms");
+    if (code === 0) {
+      try {
+        fs.writeFileSync(mark, new Date().toISOString());
+      } catch (_) {}
+    }
+  }
+  /* Start VLC in the background when the program opens, so it's ready for the first channel. */
+  function warm() {
+    if (!exe || rc || starting) return;
+    ensure().then(
+      () => log("VLC ready (started in the background)"),
+      (e) => log("VLC background start failed:", (e && e.message) || e),
+    );
+  }
+
   function kill() {
     try {
       if (rc && !rc.closed) rc.sock.end("quit\n");
@@ -387,6 +426,13 @@ export function setupVlc({ win, bundle, shortLink }) {
      picture of the screen and say whether VLC's picture is really there. */
   async function selfTest({ url, outDir }) {
     const result = { exe, version, steps: [] };
+    const tStart = Date.now();
+    try {
+      await ensure();
+      result.startMs = Date.now() - tStart;
+    } catch (e) {
+      result.startError = String(e.message || e);
+    }
     const step = (k, v) => result.steps.push([k, v]);
     rect = { x: 120, y: 160, w: 640, h: 360 };
     const r = await play({ url, live: true, caching: 1500, volume: 0 });
@@ -424,5 +470,5 @@ export function setupVlc({ win, bundle, shortLink }) {
     return result;
   }
 
-  return { exe, selfTest };
+  return { exe, selfTest, warm };
 }

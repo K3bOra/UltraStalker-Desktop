@@ -73,6 +73,7 @@ jobs:
         env:
           US_SELFTEST: ${{ runner.temp }}\selftest
         run: |
+          Remove-Item -Recurse -Force "$env:APPDATA\Ultra Stalker" -ErrorAction SilentlyContinue
           $env:US_SELFTEST_FILE = (Resolve-Path tests\fixtures\hevc-mp2.ts).Path
           npx electron . 2>&1 | Select-String "SELFTEST"
           $code = $LASTEXITCODE
@@ -91,6 +92,29 @@ jobs:
           ULTRASTALKER_DIR: ultrastalker-src
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npx electron-builder --win nsis --x64 --publish never
+
+      - name: Self-test the installed program (like a first start on a user's PC)
+        continue-on-error: true
+        timeout-minutes: 6
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem dist\*.exe | Select-Object -First 1).FullName
+          Start-Process $setup -ArgumentList "/S" -Wait
+          $app = "$env:LOCALAPPDATA\Programs\Ultra Stalker\Ultra Stalker.exe"
+          if (-not (Test-Path $app)) { Get-ChildItem "$env:LOCALAPPDATA\Programs" -Depth 1 | ForEach-Object FullName; throw "not installed" }
+          Remove-Item -Recurse -Force "$env:APPDATA\Ultra Stalker" -ErrorAction SilentlyContinue
+          $env:US_SELFTEST = "$env:RUNNER_TEMP\selftest-installed"
+          $env:US_SELFTEST_FILE = (Resolve-Path tests\fixtures\hevc-mp2.ts).Path
+          $p = Start-Process $app -PassThru -Wait
+          if (Test-Path "$env:US_SELFTEST\result.json") { Get-Content "$env:US_SELFTEST\result.json" -Raw | Write-Host }
+          exit $p.ExitCode
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selftest-installed
+          path: ${{ runner.temp }}/selftest-installed
+          if-no-files-found: ignore
 
       - name: Installer checksum
         shell: pwsh
