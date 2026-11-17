@@ -5,7 +5,7 @@
    VLC draws into a plain borderless window owned by the main window, which the page keeps
    exactly over the free part of the player — so the picture is VLC's (graphics-card
    decoding, every codec) while the gold controls stay the app's own and drive VLC. */
-import { BaseWindow, ipcMain, app } from "electron";
+import { BaseWindow, ipcMain, app, shell, desktopCapturer, screen } from "electron";
 import { spawn } from "node:child_process";
 import net from "node:net";
 import fs from "node:fs";
@@ -57,8 +57,33 @@ function freePort() {
   });
 }
 
+/* The program's own log (user folder → ultra-stalker-log.txt), for "why didn't it play?". */
+const LOG_DIR = () => app.getPath("userData");
+export function log(...parts) {
+  try {
+    const file = path.join(LOG_DIR(), "ultra-stalker-log.txt");
+    try {
+      if (fs.statSync(file).size > 1024 * 1024) fs.writeFileSync(file, "");
+    } catch (_) {}
+    fs.appendFileSync(file, new Date().toISOString() + "  " + parts.map(String).join(" ") + "\n");
+  } catch (_) {}
+}
+
 export function setupVlc({ win, bundle, shortLink }) {
   const exe = findVlc(bundle);
+  const vlcLog = path.join(LOG_DIR(), "vlc-log.txt");
+  let logMark = 0;
+  log("program", app.getVersion(), process.platform, process.arch, "· VLC:", exe || "not found");
+  /* VLC's own error lines since the current channel started (e.g. "HTTP 403"). */
+  function vlcErrors() {
+    try {
+      const all = fs.readFileSync(vlcLog, "utf8");
+      const lines = all.slice(logMark).split(/\r?\n/).filter((l) => /error|warning: (?:http|access)/i.test(l) && !/dbus|interface "|no suitable interface/i.test(l));
+      return lines.slice(-3).map((l) => l.replace(/^.*?(?:main |)(\w+ (?:error|warning)):?\s*/i, "$1: ").slice(0, 160)).join(" · ");
+    } catch (_) {
+      return "";
+    }
+  }
   let proc = null, rc = null, starting = null, vwin = null;
   const version = vlcVersion(exe);
   let rect = null, fit = "fit", info = {}, polls = 0, lastStats = null;
@@ -123,6 +148,10 @@ export function setupVlc({ win, bundle, shortLink }) {
       kill();
       if (!exe) throw new Error("VLC isn't installed");
       const port = await freePort();
+      try {
+        fs.writeFileSync(vlcLog, "");
+      } catch (_) {}
+      logMark = 0;
       const args = [
         "--intf=dummy",
         "--extraintf=oldrc",
@@ -142,17 +171,26 @@ export function setupVlc({ win, bundle, shortLink }) {
         "--http-reconnect",
         "--stats",
         "--verbose=0",
+        "--file-logging",
+        "--logfile=" + vlcLog,
+        "--log-verbose=0",
         handleArg(),
       ].filter(Boolean);
-      proc = spawn(exe, args, { windowsHide: true, stdio: ["ignore", "ignore", "ignore"], env: Object.assign({}, process.env, { LANGUAGE: "en", LC_ALL: "C", LANG: "C" }) });
-      proc.on("exit", () => {
+      log("starting VLC", exe, args.join(" "));
+      // (no windowsHide: VLC's picture window must be allowed to show)
+      proc = spawn(exe, args, { stdio: ["ignore", "ignore", "pipe"], env: Object.assign({}, process.env, { LANGUAGE: "en", LC_ALL: "C", LANG: "C" }) });
+      let stderr = "";
+      proc.stderr.on("data", (d) => (stderr = (stderr + d).slice(-2000)));
+      proc.on("error", (e) => log("VLC failed to start:", e.message));
+      proc.on("exit", (code) => {
+        log("VLC exited", code, stderr.trim().split(/\r?\n/).slice(-3).join(" | "));
         if (rc) rc.closed = true;
       });
       // connect to its control port (VLC needs a moment to start)
       const t0 = Date.now();
       let sock = null;
       while (!sock && Date.now() - t0 < 10000) {
-        if (proc.exitCode !== null) throw new Error("VLC closed right away");
+        if (proc.exitCode !== null) throw new Error("VLC closed right away (" + proc.exitCode + ") " + stderr.trim().split(/\r?\n/).slice(-1)[0]);
         sock = await new Promise((r) => {
           const s = net.connect(port, "127.0.0.1");
           s.once("connect", () => r(s));
@@ -160,7 +198,8 @@ export function setupVlc({ win, bundle, shortLink }) {
         });
         if (!sock) await new Promise((r) => setTimeout(r, 150));
       }
-      if (!sock) throw new Error("VLC's control didn't answer");
+      if (!sock) throw new Error("VLC's control didn't answer on port " + port);
+      log("VLC control connected on port", port, "after", Date.now() - t0, "ms");
       rc = new Rc(sock);
       await rc.cmd("volume", { timeout: 1500 }); // answers once VLC is ready
       return rc;
@@ -223,7 +262,7 @@ export function setupVlc({ win, bundle, shortLink }) {
     }
   });
 
-  ipcMain.handle("vlc:play", (_, o) =>
+  const play = (o) =>
     queue(async () => {
       try {
         if (!o || !/^https?:\/\//i.test(String(o.url || ""))) throw new Error("bad link");
@@ -241,14 +280,21 @@ export function setupVlc({ win, bundle, shortLink }) {
         const caching = Math.max(300, Math.min(20000, +o.caching || 3000));
         const opts = [":network-caching=" + caching, ":http-reconnect"];
         const link = shortLink ? shortLink(String(o.url)) : String(o.url);
+        try {
+          logMark = fs.statSync(vlcLog).size;
+        } catch (_) {
+          logMark = 0;
+        }
         await r.cmd("add " + link.replace(/\s/g, "%20") + " " + opts.join(" "));
         if (o.volume != null) await r.cmd("volume " + Math.max(0, Math.min(512, Math.round(+o.volume) || 0)));
+        log("VLC playing", link);
         return { ok: true, version };
       } catch (e) {
+        log("VLC play failed:", (e && e.message) || e);
         return { ok: false, error: String((e && e.message) || e) };
       }
-    }),
-  );
+    });
+  ipcMain.handle("vlc:play", (_, o) => play(o));
   ipcMain.on("vlc:stop", () => {
     rect = null;
     place();
@@ -292,8 +338,8 @@ export function setupVlc({ win, bundle, shortLink }) {
     await rc.cmd(line);
     return true;
   });
-  ipcMain.handle("vlc:status", async () => {
-    if (!rc || rc.closed) return { state: starting ? "opening" : "stopped", time: 0, length: 0 };
+  const status = async () => {
+    if (!rc || rc.closed) return { state: starting ? "opening" : "stopped", time: 0, length: 0, error: rc && rc.closed ? "VLC closed" : "" };
     const st = await rc.cmd("status");
     const txt = st.join("\n");
     let state = rc.state;
@@ -314,8 +360,10 @@ export function setupVlc({ win, bundle, shortLink }) {
       }
       lastStats = parseStats(await rc.cmd("stats"));
     }
-    return { state, time, length, info, stats: lastStats, version };
-  });
+    return { state, time, length, info, stats: lastStats, version, error: state === "stopped" ? vlcErrors() : "" };
+  };
+  ipcMain.handle("vlc:status", () => status());
+  ipcMain.on("app:logs", () => shell.showItemInFolder(path.join(LOG_DIR(), "ultra-stalker-log.txt")));
   ipcMain.handle("vlc:tracks", async () => {
     if (!rc || rc.closed) return { audio: [], subs: [] };
     return { audio: parseTracks(await rc.cmd("atrack")), subs: parseTracks(await rc.cmd("strack")) };
@@ -335,5 +383,46 @@ export function setupVlc({ win, bundle, shortLink }) {
     kill();
     if (vwin && !vwin.isDestroyed()) vwin.destroy();
   });
-  return { exe };
+  /* Self-test (build machine): play a file in the window, read VLC's state, take a
+     picture of the screen and say whether VLC's picture is really there. */
+  async function selfTest({ url, outDir }) {
+    const result = { exe, version, steps: [] };
+    const step = (k, v) => result.steps.push([k, v]);
+    rect = { x: 120, y: 160, w: 640, h: 360 };
+    const r = await play({ url, live: true, caching: 1500, volume: 0 });
+    step("play", r);
+    let last = null;
+    for (let i = 0; i < 24; i++) {
+      await new Promise((ok) => setTimeout(ok, 500));
+      last = await status();
+      if (i % 4 === 0) step("status", { state: last.state, time: last.time, info: last.info, error: last.error });
+      if (last.time >= 2 && last.info && last.info.width) break;
+    }
+    place();
+    await new Promise((ok) => setTimeout(ok, 1500));
+    result.status = last;
+    result.window = vwin && !vwin.isDestroyed() ? { visible: vwin.isVisible(), bounds: vwin.getBounds() } : null;
+    try {
+      const d = screen.getPrimaryDisplay();
+      const shots = await desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width: d.size.width, height: d.size.height } });
+      const img = shots[0].thumbnail;
+      fs.writeFileSync(path.join(outDir, "screen.png"), img.toPNG());
+      // how colourful is the area where VLC draws? (black = no picture)
+      const b = result.window.bounds, scale = img.getSize().width / d.size.width;
+      const crop = img.crop({ x: Math.round((b.x - d.bounds.x) * scale), y: Math.round((b.y - d.bounds.y) * scale), width: Math.round(b.width * scale), height: Math.round(b.height * scale) }).toBitmap();
+      let lit = 0, n = 0;
+      for (let i = 0; i < crop.length; i += 4 * 97, n++) if (crop[i] + crop[i + 1] + crop[i + 2] > 120) lit++;
+      result.pictureLit = n ? Math.round((lit / n) * 100) : 0;
+    } catch (e) {
+      result.captureError = String(e.message || e);
+    }
+    result.ok = !!(r && r.ok && last && last.time >= 1 && last.info && last.info.width && result.pictureLit > 20);
+    try {
+      result.log = fs.readFileSync(path.join(LOG_DIR(), "ultra-stalker-log.txt"), "utf8").slice(-4000);
+      result.vlcLog = fs.readFileSync(vlcLog, "utf8").slice(-3000);
+    } catch (_) {}
+    return result;
+  }
+
+  return { exe, selfTest };
 }

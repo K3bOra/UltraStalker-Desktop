@@ -65,6 +65,27 @@ jobs:
           $mb = [math]::Round(((Get-ChildItem vlc -Recurse | Measure-Object Length -Sum).Sum / 1MB), 1)
           Write-Host "VLC folder: $mb MB"
 
+      - name: Self-test - VLC plays inside the program window on Windows
+        id: selftest
+        continue-on-error: true
+        timeout-minutes: 4
+        shell: pwsh
+        env:
+          US_SELFTEST: ${{ runner.temp }}\selftest
+        run: |
+          $env:US_SELFTEST_FILE = (Resolve-Path tests\fixtures\hevc-mp2.ts).Path
+          npx electron . 2>&1 | Select-String "SELFTEST"
+          $code = $LASTEXITCODE
+          if (Test-Path "$env:US_SELFTEST\result.json") { Get-Content "$env:US_SELFTEST\result.json" -Raw | Write-Host }
+          exit $code
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: selftest
+          path: ${{ runner.temp }}/selftest
+          if-no-files-found: ignore
+
       - name: Build the installer
         env:
           ULTRASTALKER_DIR: ultrastalker-src

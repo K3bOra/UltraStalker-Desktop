@@ -9,7 +9,8 @@ import fs from "node:fs";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { startServer } from "./server.js";
-import { setupVlc } from "./vlc.js";
+import { setupVlc, log } from "./vlc.js";
+import http from "node:http";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 // Fixed port: the saved sources live in the page's storage, which belongs to this address.
@@ -61,7 +62,8 @@ async function createWindow(origin, shortLink) {
     },
   });
   win.removeMenu();
-  setupVlc({ win, bundle: bundleDir(), shortLink });
+  const vlc = setupVlc({ win, bundle: bundleDir(), shortLink });
+  if (process.env.US_SELFTEST) win.webContents.once("did-finish-load", () => selfTest(vlc).catch((e) => (console.error(e), app.exit(3))));
   win.once("ready-to-show", () => {
     win.show();
     if (process.env.US_SMOKE) win.webContents.openDevTools({ mode: "detach" });
@@ -101,6 +103,24 @@ async function createWindow(origin, shortLink) {
   await win.loadURL(origin + "/index.html");
 }
 
+/* Build-machine check: VLC plays a test stream inside the window (US_SELFTEST = folder
+   for the result, US_SELFTEST_FILE = a .ts file). */
+async function selfTest(vlc) {
+  const out = process.env.US_SELFTEST;
+  fs.mkdirSync(out, { recursive: true });
+  const file = process.env.US_SELFTEST_FILE;
+  const srv = http.createServer((req, res) => {
+    res.writeHead(200, { "Content-Type": "video/mp2t" });
+    fs.createReadStream(file).pipe(res);
+  });
+  await new Promise((r) => srv.listen(0, "127.0.0.1", r));
+  await new Promise((r) => setTimeout(r, 1500));
+  const result = await vlc.selfTest({ url: "http://127.0.0.1:" + srv.address().port + "/test.ts", outDir: out });
+  fs.writeFileSync(path.join(out, "result.json"), JSON.stringify(result, null, 2));
+  console.log("SELFTEST", result.ok ? "OK" : "FAILED", JSON.stringify({ status: result.status, pictureLit: result.pictureLit, window: result.window }));
+  app.exit(result.ok ? 0 : 1);
+}
+
 app.on("second-instance", () => {
   if (win) {
     if (win.isMinimized()) win.restore();
@@ -109,6 +129,7 @@ app.on("second-instance", () => {
 });
 
 app.whenReady().then(async () => {
+  log("start", app.getVersion());
   const bundle = bundleDir();
   let origin, shortLink;
   try {
