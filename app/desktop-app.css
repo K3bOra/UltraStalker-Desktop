@@ -1,12 +1,8 @@
 /* Ultra Stalker for Windows — only what differs from the website. */
 /* The gold top bar is the window's title bar: drag the window by it (when it isn't full
    screen); the window's own buttons sit at its right end. */
-html.us-app body.desk #dkBar:not(#_):not(#__):not(#___){background:radial-gradient(700px 90px at 40% -30%,rgba(226,192,124,.14),transparent 70%),#141210!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;-webkit-app-region:drag;app-region:drag}
+html.us-app body.desk #dkBar{-webkit-app-region:drag;app-region:drag}
 html.us-app body.desk #dkBar :is(button,a,input,select,label,nav,#dkNav,.dk-srcbtn,.dk-bar-search,.search-box):not(#_){-webkit-app-region:no-drag;app-region:no-drag}
-html.us-app body.desk #dkBar:not(#_):not(#__):after{opacity:.6!important}
-/* the details pages also keep the solid bar (it carries the window buttons) */
-html.us-app body.desk.dk-hero-top #dkBar:not(#_):not(#__):not(#___){background:radial-gradient(700px 90px at 40% -30%,rgba(226,192,124,.14),transparent 70%),#141210!important}
-html.us-app body.desk{--us-barbg:radial-gradient(700px 90px at 40% -30%,rgba(226,192,124,.14),transparent 70%),#141210}
 html.us-full body.desk #dkBar:not(#_):not(#__):not(#___){-webkit-app-region:no-drag;app-region:no-drag}
 /* window buttons: minimise · full screen / window · close, like the search button */
 html.us-app .usw{display:flex;align-items:center;gap:8px;margin-left:14px;padding-left:16px;position:relative}
@@ -18,18 +14,82 @@ html.us-app .usw .usw-x:hover{background:linear-gradient(180deg,#b3322a,#8c211b)
 /* a little more room on very wide windows */
 html.us-app body.desk{--pad:44px}
 
-/* The shared desktop theme uses important rules for poster captions. */
-@layer windowsPosterCaptions {
+/* Layered important declarations override the shared theme's important rules. */
+@layer windowsGlass {
+  html.us-app body.desk {
+    --smoked-glass: linear-gradient(150deg, rgba(245, 225, 185, .14), rgba(215, 190, 143, .025) 44%, transparent 75%), rgba(22, 20, 17, .70);
+    --glass-rim: rgba(234, 210, 163, .24);
+    --glass-light: inset 0 1px rgba(255, 244, 218, .18);
+  }
+  html.us-app body.desk #dkBar,
+  html.us-app body.dk-frame #dkTvCats,
+  html.us-app body.dk-tv-mode #dkTvList {
+    background: var(--smoked-glass) !important;
+    backdrop-filter: blur(14px) saturate(1.12) !important;
+    box-shadow: none !important;
+  }
+  html.us-app body.dk-frame #dkBar::before,
+  html.us-app body.desk #dkBar::after {
+    content: none !important;
+  }
+  html.us-app body.dk-frame .dk-tvc-list button + button::before {
+    opacity: .30;
+  }
+  html.us-app body.dk-vg-mode .dk-tvl-head {
+    padding: 14px clamp(14px, 1.3vw, 24px) !important;
+    margin-bottom: 26px;
+    border: 1px solid var(--glass-rim) !important;
+    border-radius: 18px;
+    background: var(--smoked-glass) !important;
+    backdrop-filter: blur(12px) !important;
+    box-shadow: var(--glass-light);
+  }
+  html.us-app body.dk-vg-mode .dk-tvl-head::after {
+    content: none !important;
+  }
+  /* Let the film image carry all the way to the window edge. The gradient
+     extends below the controls so there is no hard seam at title-bar height. */
+  html.us-app body.dk-hero-top #dkBar {
+    transition: none !important;
+    background: none !important;
+    backdrop-filter: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    isolation: isolate;
+  }
+  html.us-app body.dk-hero-top #dkBar::before {
+    content: "" !important;
+    position: absolute;
+    inset: 0 0 -42px !important;
+    z-index: -1;
+    background: linear-gradient(to bottom, rgba(12, 11, 10, .78), rgba(15, 14, 12, .38) 48%, transparent) !important;
+    box-shadow: none !important;
+    pointer-events: none;
+  }
+  html.us-app body.dk-hero-top #dkBar :is(.dk-qb:not(.on), .dk-bar-icon:not(:hover), .dk-srcbtn, #dkNav),
+  html.us-app body.dk-hero-top .series-cinematic :is(.detail-back, .series-overview:not(.episodes-mode)) {
+    background: var(--smoked-glass) !important;
+    border: 1px solid var(--glass-rim) !important;
+    backdrop-filter: blur(12px) !important;
+    box-shadow: var(--glass-light) !important;
+  }
   html.us-app body.dk-vg-mode #browseItems .poster-copy {
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
-    margin: 9px 0 0 !important;
-    padding: 9px 13px 10px !important;
-    gap: 4px !important;
-    border: 1px solid rgba(218, 187, 128, .27) !important;
+    position: relative;
+    align-self: center;
+    margin: -6px 0 0 !important;
+    padding: 10px 13px !important;
+    gap: 5px !important;
+    border: 1px solid var(--glass-rim) !important;
     border-radius: 18px !important;
-    background: linear-gradient(145deg, rgba(41, 34, 25, .97), rgba(22, 19, 16, .96)) !important;
+    background: var(--smoked-glass) !important;
+    backdrop-filter: blur(10px) saturate(1.12) !important;
+    box-shadow: var(--glass-light), 0 6px 18px -12px rgba(0,0,0,.72);
+  }
+  html.us-app body.dk-vg-mode #browseItems .poster-copy .item-title {
+    min-height: 2.72em !important;
   }
   html.us-app body.dk-vg-mode #browseItems .poster-facts {
     flex-wrap: wrap !important;
@@ -41,7 +101,18 @@ html.us-app body.desk{--pad:44px}
   html.us-app body.dk-vg-mode #browseItems .poster-fact.rating {
     color: #e8cf93 !important;
   }
+  .series-overview:has(> .us-story-head)::before { display: none !important; }
 }
+.us-story-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+.us-story-head strong { color:#e8cf93; font-size:14px; }
+.us-story-head [role="group"] { display:inline-flex; gap:3px; padding:3px; border:1px solid var(--glass-rim); border-radius:99px; background:rgba(12,11,10,.48); }
+.us-story-head button { border:0; border-radius:99px; padding:5px 12px; background:transparent; color:#f1e7d6; font:inherit; font-size:13px; cursor:pointer; }
+.us-story-head button[aria-pressed="true"] { background:#e4ca92; color:#201a12; }
+.us-story-copy { margin:0; text-align:start; line-height:1.8; }
+.us-story-note { display:block; color:#e6c997; font-size:13px; }
+.us-trailer { display:inline-flex; align-items:center; justify-content:center; gap:8px; align-self:center; padding:0 18px; min-height:44px; border:1px solid var(--glass-rim); border-radius:15px; background:var(--smoked-glass); color:#f8e4b5; font:inherit; font-weight:600; text-decoration:none; box-shadow:var(--glass-light); }
+.us-trailer:hover { border-color:#dcc28d; }
+.us-trailer:focus-visible,.us-story-head button:focus-visible { outline:2px solid #f1d999; outline-offset:2px; }
 
 html.us-app #dkBar .dk-qb .dk-ic {
   width: 22px;

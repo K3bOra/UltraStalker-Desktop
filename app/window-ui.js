@@ -62,6 +62,98 @@
     items.replaceChildren(status);
   }
   document.addEventListener("click", switchSection, true);
+
+  // The desktop auto-opens categories without pushing a history entry. Mark
+  // that entry as the loaded wall before the details page pushes its own entry.
+  function rememberWall(event) {
+    if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return;
+    const card = event.target.closest("body.dk-vg-mode #browseItems .poster-card");
+    if (!card || event.target.closest(".favorite-action") || !activeCategory || !history.state?.usBrowse) return;
+    history.replaceState({ ...history.state, view: "items", category: { ...activeCategory },
+      account: document.getElementById("browseAccount").value, media: browseMedia,
+      scrollY: window.scrollY, posterItem: card.dataset.item }, document.title);
+  }
+  document.addEventListener("click", rememberWall, true);
+  document.addEventListener("keydown", rememberWall, true);
+  window.addEventListener("popstate", ({state}) => {
+    if (state?.view !== "items" || !state.posterItem) return;
+    requestAnimationFrame(() => {
+      const card = document.querySelector("#browseItems .poster-card[data-item=" + CSS.escape(state.posterItem) + "]");
+      card?.focus({ preventScroll: true });
+    });
+  });
+
+  let storyLanguage = "ar";
+  try { if (localStorage.getItem("us-story-language") === "en") storyLanguage = "en"; } catch (_) {}
+  const storyObservers = new Map();
+  document.addEventListener("us-details", async ({detail}) => {
+    if (!detail || !["vod", "series"].includes(detail.media)) return;
+    const series = detail.media === "series";
+    const current = () => (series ? activeSeries : activeMovie)?.id === detail.item;
+    if (!current()) return;
+    const prefix = series ? "series" : "movie";
+    const overview = document.getElementById(prefix + "Overview");
+    const actions = document.getElementById(prefix + "HeroActions");
+    storyObservers.get(prefix)?.disconnect();
+    const observer = new MutationObserver(mount);
+    storyObservers.set(prefix, observer);
+    let payload;
+    if (detail.tmdb) {
+      payload = await window.USEngine.tmdbGet((series ? "tv/" : "movie/") + detail.tmdb,
+        { language: "en-US", append_to_response: "translations,videos" });
+    }
+    if (!current() || storyObservers.get(prefix) !== observer) return;
+    const translations = payload?.translations?.translations || [];
+    const textFor = lang => translations.find(row => row.iso_639_1 === lang && row.data?.overview?.trim())?.data.overview.trim() || "";
+    const stories = { ar: textFor("ar"), en: textFor("en") || payload?.overview?.trim() || "" };
+    const videos = (payload?.videos?.results || []).filter(v => v.site === "YouTube" && v.type === "Trailer" && /^[a-zA-Z0-9_-]{11}$/.test(v.key));
+    const trailer = videos.find(v => v.official) || videos[0];
+    actions.querySelector(".us-trailer")?.remove();
+    if (trailer) {
+      const link = document.createElement("a");
+      link.className = "us-trailer";
+      link.textContent = "▷  الإعلان";
+      link.title = "مشاهدة الإعلان على YouTube";
+      link.href = "https://www.youtube.com/watch?v=" + trailer.key;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      actions.insertBefore(link, actions.querySelector(".series-season-stack"));
+    }
+    function mount() {
+      if (!current() || overview.classList.contains("episodes-mode") || overview.querySelector(".us-story-head")) return;
+      const original = overview.textContent.trim();
+      const originalLang = /[\u0600-\u06ff]/.test(original) ? "ar" : "en";
+      const head = document.createElement("div");
+      head.className = "us-story-head";
+      head.innerHTML = '<strong></strong><div role="group" aria-label="لغة القصة"><button type="button" lang="ar" data-lang="ar">العربية</button><button type="button" lang="en" data-lang="en">English</button></div>';
+      const copy = document.createElement("p");
+      copy.className = "us-story-copy";
+      const note = document.createElement("small");
+      note.className = "us-story-note";
+      function paint() {
+        const ar = storyLanguage === "ar";
+        const chosen = stories[storyLanguage] || (originalLang === storyLanguage ? original : "");
+        const other = stories[ar ? "en" : "ar"] || original;
+        head.querySelector("strong").textContent = ar ? "القصة" : "Story";
+        head.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === storyLanguage)));
+        copy.textContent = chosen || other;
+        copy.dir = "auto";
+        copy.lang = /[\u0600-\u06ff]/.test(copy.textContent) ? "ar" : "en";
+        note.textContent = chosen ? "" : ar ? "الوصف العربي غير متاح لهذا العنوان." : "An English description is unavailable for this title.";
+      }
+      head.onclick = (e) => {
+        const button = e.target.closest("button[data-lang]");
+        if (!button) return;
+        storyLanguage = button.dataset.lang;
+        try { localStorage.setItem("us-story-language", storyLanguage); } catch (_) {}
+        paint();
+      };
+      paint();
+      overview.replaceChildren(head, note, copy);
+    }
+    mount();
+    observer.observe(overview, { childList: true });
+  });
   const I = {
     min: '<svg viewBox="0 0 24 24"><path d="M6 12.5h12"/></svg>',
     full: '<svg viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/></svg>',
