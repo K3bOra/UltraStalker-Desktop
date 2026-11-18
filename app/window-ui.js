@@ -3,6 +3,65 @@
 (function () {
   const W = window.usNative && window.usNative.win;
   if (!W) return;
+  // A section change uses the current source. Keep the items stage (and its
+  // three tabs) on screen while the shared browser loads the new categories.
+  async function switchSection(event) {
+    const tab = event.target.closest("#dkTvCats .dk-secseg button[data-go]");
+    if (!tab) return;
+    const byId = (id) => document.getElementById(id);
+    const account = byId("browseAccount").value;
+    if (!account || byId("itemsStage").classList.contains("hidden")) return;
+    event.stopPropagation();
+    const media = tab.dataset.go;
+    const column = tab.closest("#dkTvCats").querySelector(".dk-tvc-body");
+    if (media === browseMedia && !column.querySelector(".us-section-retry")) return;
+
+    browseMedia = media;
+    syncMediaButtons();
+    const loaded = loadCategories(true);
+    const generation = categoryGeneration;
+    // loadCategories has reset the old item request and history synchronously.
+    showItems();
+    const items = byId("browseItems");
+    items.replaceChildren();
+    byId("itemsSummary").textContent = "";
+    byId("dkTvFind").value = "";
+    byId("dkTvCat").textContent = mediaName(media);
+    byId("dkTvCount").textContent = "";
+    delete column.dataset.sig;
+    const status = document.createElement("p");
+    status.className = "us-section-status";
+    status.setAttribute("role", "status");
+    status.textContent = "Loading " + tab.textContent.trim() + "…";
+    column.replaceChildren(status);
+    window.scrollTo({ top: 0, behavior: "instant" });
+
+    await loaded;
+    if (generation !== categoryGeneration || browseMedia !== media ||
+        byId("browseAccount").value !== account || byId("itemsStage").classList.contains("hidden")) return;
+    const categories = [...byId("browseCategories").querySelectorAll(".category")];
+    if (categories.length) {
+      const key = media === "itv" ? "us-web-livecat:" : "us-web-cat:" + media + ":";
+      let remembered;
+      try { remembered = localStorage.getItem(key + account); } catch (_) {}
+      const category = categories.find((el) => (el.dataset.categoryId || "*") === remembered) || categories[0];
+      await openCategory({ id: category.dataset.categoryId || "*", title: category.title }, false);
+      return;
+    }
+    // Empty libraries and provider errors stay in the frame and can be retried.
+    const empty = byId("browseCategories").querySelector(".empty");
+    const summary = byId("browseStatus").textContent;
+    status.textContent = /^0 categories/.test(summary) ? empty?.textContent || "No categories returned." : summary;
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "us-section-retry";
+    retry.textContent = "Try again";
+    retry.onclick = () => tab.click();
+    column.replaceChildren(retry);
+    // A non-empty wall suppresses the poster placeholders when loading is over.
+    items.replaceChildren(status);
+  }
+  document.addEventListener("click", switchSection, true);
   const I = {
     min: '<svg viewBox="0 0 24 24"><path d="M6 12.5h12"/></svg>',
     full: '<svg viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/></svg>',
@@ -13,6 +72,11 @@
     const right = document.querySelector("#dkBar .dk-bar-right");
     if (!right) return setTimeout(add, 150);
     if (right.querySelector(".usw")) return;
+    // The compact title bar hides the text visually; keep the button names.
+    for (const button of right.querySelectorAll(".dk-qb")) {
+      button.setAttribute("aria-label", button.textContent.trim());
+      button.querySelector(".dk-ic")?.setAttribute("aria-hidden", "true");
+    }
     const box = document.createElement("div");
     box.className = "usw";
     box.innerHTML =

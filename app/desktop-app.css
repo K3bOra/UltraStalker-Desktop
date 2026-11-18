@@ -17,3 +17,37 @@ html.us-app .usw .dk-bar-icon:hover{background:rgba(226,192,124,.16);border-colo
 html.us-app .usw .usw-x:hover{background:linear-gradient(180deg,#b3322a,#8c211b);border-color:rgba(255,180,160,.5);color:#fff}
 /* a little more room on very wide windows */
 html.us-app body.desk{--pad:44px}
+
+/* Dim the silk behind movie and series captions without dimming the artwork. */
+html.us-app body.dk-vg-mode #usAura {
+  filter: brightness(.72);
+}
+
+html.us-app #dkBar .dk-qb .dk-ic {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+html.us-app #dkBar .dk-qb .dk-ic svg {
+  display: block;
+  width: 21px;
+  height: 21px;
+  stroke: currentColor;
+  stroke-width: 1.75;
+}
+.us-section-status { margin: 12px; color: var(--dim, #cbbda5); }
+.us-section-retry {
+  align-self: flex-start;
+  margin-inline: 12px;
+  padding: 8px 14px;
+  border: 1px solid currentColor;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--gold-1, #e2c07c);
+  font: inherit;
+  cursor: pointer;
+}
