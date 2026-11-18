@@ -58,8 +58,8 @@ async function createWindow(origin, shortLink) {
   win = new BrowserWindow({
     width: 1600,
     height: 940,
-    minWidth: 1180,
-    minHeight: 720,
+    minWidth: 900,
+    minHeight: 600,
     show: false,
     backgroundColor: "#09090a",
     title: "Ultra Stalker",
