@@ -112,8 +112,9 @@
     if (trailer) {
       const link = document.createElement("a");
       link.className = "us-trailer";
-      link.textContent = "▷  الإعلان";
-      link.title = "مشاهدة الإعلان على YouTube";
+      link.textContent = "Trailer";
+      link.lang = "en";
+      link.title = "Watch trailer on YouTube";
       link.href = "https://www.youtube.com/watch?v=" + trailer.key;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
