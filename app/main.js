@@ -17,7 +17,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 47390;
 const CLOUD_RELAY = "https://ultrastalker-web.k3borazz0.workers.dev";
 
-app.setAppUserModelId("com.k3bora.ultrastalker");
+const APP_ID = "com.k3bora.ultrastalker";
+app.setAppUserModelId(APP_ID);
 // Hardware decoding for HEVC / 4K where the graphics card supports it.
 app.commandLine.appendSwitch("enable-features", "PlatformHEVCDecoderSupport,PlatformHEVCEncoderSupport");
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
@@ -78,6 +79,19 @@ async function createWindow(origin, shortLink) {
     },
   });
   win.removeMenu();
+  // Identify the installed desktop app on the embed document request.
+  const playerHost = win.webContents.id;
+  win.webContents.session.webRequest.onBeforeSendHeaders(
+    { urls: ["https://www.youtube-nocookie.com/embed/*"] },
+    (request, done) => {
+      const headers = request.requestHeaders;
+      if (request.webContentsId === playerHost && request.resourceType === "subFrame") {
+        const name = Object.keys(headers).find(key => key.toLowerCase() === "referer") || "Referer";
+        headers[name] = "https://" + APP_ID + "/";
+      }
+      done({ requestHeaders: headers });
+    }
+  );
   const sendState = () => !win.isDestroyed() && win.webContents.send("win:state", { full: win.isFullScreen(), max: win.isMaximized() });
   for (const ev of ["enter-full-screen", "leave-full-screen", "maximize", "unmaximize"]) win.on(ev, sendState);
   const toggleFull = () => {

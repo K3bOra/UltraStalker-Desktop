@@ -86,6 +86,42 @@
   let storyLanguage = "ar";
   try { if (localStorage.getItem("us-story-language") === "en") storyLanguage = "en"; } catch (_) {}
   const storyObservers = new Map();
+  function showTrailer(videoId, title) {
+    const dialog = document.createElement("dialog");
+    dialog.className = "us-trailer-dialog";
+    dialog.setAttribute("aria-label", "Trailer");
+    const header = document.createElement("header");
+    const heading = document.createElement("strong");
+    heading.textContent = title ? "Trailer · " + title : "Trailer";
+    heading.dir = "auto";
+    const close = document.createElement("button");
+    close.type = "button";
+    close.textContent = "Close";
+    close.autofocus = true;
+    close.onclick = () => dialog.close();
+    header.append(heading, close);
+    const frame = document.createElement("iframe");
+    frame.title = heading.textContent;
+    frame.setAttribute("credentialless", "");
+    frame.setAttribute("sandbox", "allow-scripts allow-same-origin allow-presentation");
+    frame.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
+    frame.allowFullscreen = true;
+    frame.referrerPolicy = "strict-origin-when-cross-origin";
+    const dismiss = () => dialog.close();
+    const offline = document.createElement("p");
+    offline.textContent = "تعذّر الاتصال بمشغّل الإعلان.";
+    offline.hidden = true;
+    frame.onerror = () => { offline.hidden = false; };
+    dialog.append(header, frame, offline);
+    dialog.addEventListener("close", () => {
+      window.removeEventListener("popstate", dismiss);
+      dialog.remove();
+    }, {once: true});
+    window.addEventListener("popstate", dismiss);
+    document.body.append(dialog);
+    dialog.showModal();
+    frame.src = "https://www.youtube-nocookie.com/embed/" + videoId + "?autoplay=1&playsinline=1";
+  }
   document.addEventListener("us-details", async ({detail}) => {
     if (!detail || !["vod", "series"].includes(detail.media)) return;
     const series = detail.media === "series";
@@ -110,15 +146,14 @@
     const trailer = videos.find(v => v.official) || videos[0];
     actions.querySelector(".us-trailer")?.remove();
     if (trailer) {
-      const link = document.createElement("a");
-      link.className = "us-trailer";
-      link.textContent = "Trailer";
-      link.lang = "en";
-      link.title = "Watch trailer on YouTube";
-      link.href = "https://www.youtube.com/watch?v=" + trailer.key;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      actions.insertBefore(link, actions.querySelector(".series-season-stack"));
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "us-trailer";
+      button.textContent = "Trailer";
+      button.lang = "en";
+      button.setAttribute("aria-haspopup", "dialog");
+      button.onclick = () => showTrailer(trailer.key, document.getElementById(prefix + "Title").textContent);
+      actions.insertBefore(button, actions.querySelector(".series-season-stack"));
     }
     function mount() {
       if (!current() || overview.classList.contains("episodes-mode") || overview.querySelector(".us-story-head")) return;
