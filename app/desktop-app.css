@@ -18,9 +18,29 @@ html.us-app .usw .usw-x:hover{background:linear-gradient(180deg,#b3322a,#8c211b)
 /* a little more room on very wide windows */
 html.us-app body.desk{--pad:44px}
 
-/* Dim the silk behind movie and series captions without dimming the artwork. */
-html.us-app body.dk-vg-mode #usAura {
-  filter: brightness(.72);
+/* The shared desktop theme uses important rules for poster captions. */
+@layer windowsPosterCaptions {
+  html.us-app body.dk-vg-mode #browseItems .poster-copy {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    margin: 9px 0 0 !important;
+    padding: 9px 13px 10px !important;
+    gap: 4px !important;
+    border: 1px solid rgba(218, 187, 128, .27) !important;
+    border-radius: 18px !important;
+    background: linear-gradient(145deg, rgba(41, 34, 25, .97), rgba(22, 19, 16, .96)) !important;
+  }
+  html.us-app body.dk-vg-mode #browseItems .poster-facts {
+    flex-wrap: wrap !important;
+    gap: 3px 8px !important;
+  }
+  html.us-app body.dk-vg-mode #browseItems .poster-fact {
+    color: #cec4b2 !important;
+  }
+  html.us-app body.dk-vg-mode #browseItems .poster-fact.rating {
+    color: #e8cf93 !important;
+  }
 }
 
 html.us-app #dkBar .dk-qb .dk-ic {
