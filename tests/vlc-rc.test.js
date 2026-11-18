@@ -14,6 +14,11 @@ test("tracks", () => {
   const t = parseTracks(lines("+----[ Audio Track ]\r\n| -1 - Disable\r\n| 257 - Track 1 - [English] *\r\n| 258 - Track 2 - [Arabic]\r\n+----[ end of Audio Track ]"));
   assert.deepEqual(t, [{ id: -1, name: "Disable", on: false }, { id: 257, name: "English", on: true }, { id: 258, name: "Arabic", on: false }]);
 });
+test("track names as VLC writes them", () => {
+  const t = parseTracks(lines("+----[ Audio Track ]\r\n| -1 - Disable\r\n| 1 - English - [English] *\r\n| 2 - Commentary - [English]\r\n| 3 - Track 3 - [Arabic]\r\n+----[ end of Audio Track ]"));
+  assert.deepEqual(t.map((x) => x.name), ["Disable", "English", "Commentary · English", "Arabic"]);
+  assert.equal(t[1].on, true);
+});
 test("stats", () => {
   assert.deepEqual(parseStats(lines("+-[Video Decoding]\r\n| video decoded    :      307\r\n| frames displayed :      127\r\n| frames lost      :        2")), { shown: 127, lost: 2, decoded: 307 });
 });

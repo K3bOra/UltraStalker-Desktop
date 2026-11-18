@@ -128,7 +128,13 @@ export function parseTracks(lines) {
   const out = [];
   for (const l of lines) {
     const m = l.match(/^\|\s*(-?\d+)\s*-\s*(.*?)\s*(\*)?\s*$/);
-    if (m) out.push({ id: +m[1], name: m[2].replace(/^Track \d+\s*-\s*/, "").replace(/^\[|\]$/g, "") || m[2], on: !!m[3] });
+    if (!m) continue;
+    // "Track 1 - [English]" · "English - [English]" · "Commentary - [English]" · "Disable"
+    let n = m[2].replace(/^Track \d+\s*-\s*/, "");
+    const two = n.match(/^(.*?)\s*-\s*\[(.+)\]$/);
+    if (two) n = two[1].toLowerCase() === two[2].toLowerCase() ? two[1] : two[1] + " · " + two[2];
+    n = n.replace(/^\[|\]$/g, "").trim();
+    out.push({ id: +m[1], name: n || m[2], on: !!m[3] });
   }
   return out;
 }
