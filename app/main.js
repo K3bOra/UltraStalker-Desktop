@@ -3,7 +3,7 @@
    Starts the local server (interface + relay on 127.0.0.1) and opens one window on it.
    The window has no Windows title bar: the app's own gold top bar is the title bar, and
    the minimise / maximise / close buttons sit inside it in the same colours. */
-import { app, BrowserWindow, shell, session, nativeTheme, dialog } from "electron";
+import { app, BrowserWindow, shell, session, nativeTheme, dialog, ipcMain } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
@@ -16,7 +16,6 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 // Fixed port: the saved sources live in the page's storage, which belongs to this address.
 const PORT = 47390;
 const CLOUD_RELAY = "https://ultrastalker-web.k3borazz0.workers.dev";
-const BAR = 76;
 
 app.setAppUserModelId("com.k3bora.ultrastalker");
 // Hardware decoding for HEVC / 4K where the graphics card supports it.
@@ -36,8 +35,25 @@ function bundleDir() {
 }
 
 let win = null;
+/* Remembered window choice (full screen or window) in the user folder. */
+const prefsFile = () => path.join(app.getPath("userData"), "window.json");
+let prefs = {};
+function loadPrefs() {
+  try {
+    prefs = JSON.parse(fs.readFileSync(prefsFile(), "utf8")) || {};
+  } catch (_) {
+    prefs = {};
+  }
+}
+function savePrefs(p) {
+  prefs = Object.assign(prefs, p);
+  try {
+    fs.writeFileSync(prefsFile(), JSON.stringify(prefs));
+  } catch (_) {}
+}
 
 async function createWindow(origin, shortLink) {
+  loadPrefs();
   nativeTheme.themeSource = "dark";
   win = new BrowserWindow({
     width: 1600,
@@ -48,8 +64,8 @@ async function createWindow(origin, shortLink) {
     backgroundColor: "#09090a",
     title: "Ultra Stalker",
     icon: path.join(bundleDir(), "web", "icons", "gold-512.png"),
-    titleBarStyle: "hidden",
-    titleBarOverlay: { color: "#141210", symbolColor: "#e6cb8c", height: BAR },
+    // No Windows frame at all: the gold top bar carries the window's own buttons.
+    frame: false,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(HERE, "preload.cjs"),
@@ -62,10 +78,33 @@ async function createWindow(origin, shortLink) {
     },
   });
   win.removeMenu();
+  const sendState = () => !win.isDestroyed() && win.webContents.send("win:state", { full: win.isFullScreen(), max: win.isMaximized() });
+  for (const ev of ["enter-full-screen", "leave-full-screen", "maximize", "unmaximize"]) win.on(ev, sendState);
+  const toggleFull = () => {
+    const on = !win.isFullScreen();
+    win.setFullScreen(on);
+    savePrefs({ full: on });
+  };
+  win.webContents.on("before-input-event", (e, input) => {
+    if (input.type === "keyDown" && input.key === "F11") {
+      e.preventDefault();
+      toggleFull();
+    }
+  });
+  ipcMain.removeAllListeners("win:cmd");
+  ipcMain.on("win:cmd", (_, c) => {
+    if (c === "min") win.minimize();
+    else if (c === "full") toggleFull();
+    else if (c === "close") win.close();
+  });
+  ipcMain.removeAllListeners("win:state");
+  ipcMain.on("win:state", (e) => (e.returnValue = { full: win.isFullScreen(), max: win.isMaximized() }));
   const vlc = setupVlc({ win, bundle: bundleDir(), shortLink });
   if (process.env.US_SELFTEST) win.webContents.once("did-finish-load", () => selfTest(vlc).catch((e) => (console.error(e), app.exit(3))));
   else win.webContents.once("did-finish-load", () => setTimeout(() => vlc.warm(), 1500));
   win.once("ready-to-show", () => {
+    // Opens taking the whole screen (as it was left last time; F11 switches).
+    if (prefs.full !== false) win.setFullScreen(true);
     win.show();
     if (process.env.US_SMOKE) win.webContents.openDevTools({ mode: "detach" });
   });

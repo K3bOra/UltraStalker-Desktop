@@ -1,12 +1,19 @@
 /* Ultra Stalker for Windows — only what differs from the website. */
-/* The gold top bar is the window's title bar: drag the window by it; the Windows
-   minimise / maximise / close buttons sit at its right end in the same colours. */
-html.us-app body.desk #dkBar:not(#_):not(#__):not(#___){background:radial-gradient(700px 90px at 40% -30%,rgba(226,192,124,.14),transparent 70%),#141210!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;padding-right:calc(var(--pad) + 140px)!important;-webkit-app-region:drag;app-region:drag}
+/* The gold top bar is the window's title bar: drag the window by it (when it isn't full
+   screen); the window's own buttons sit at its right end. */
+html.us-app body.desk #dkBar:not(#_):not(#__):not(#___){background:radial-gradient(700px 90px at 40% -30%,rgba(226,192,124,.14),transparent 70%),#141210!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;-webkit-app-region:drag;app-region:drag}
 html.us-app body.desk #dkBar :is(button,a,input,select,label,nav,#dkNav,.dk-srcbtn,.dk-bar-search,.search-box):not(#_){-webkit-app-region:no-drag;app-region:no-drag}
 html.us-app body.desk #dkBar:not(#_):not(#__):after{opacity:.6!important}
 /* the details pages also keep the solid bar (it carries the window buttons) */
 html.us-app body.desk.dk-hero-top #dkBar:not(#_):not(#__):not(#___){background:radial-gradient(700px 90px at 40% -30%,rgba(226,192,124,.14),transparent 70%),#141210!important}
-/* the source picker opens under the bar, clear of the window buttons */
-html.us-app .dk-srcpanel{margin-right:0}
+html.us-app body.desk{--us-barbg:radial-gradient(700px 90px at 40% -30%,rgba(226,192,124,.14),transparent 70%),#141210}
+html.us-full body.desk #dkBar:not(#_):not(#__):not(#___){-webkit-app-region:no-drag;app-region:no-drag}
+/* window buttons: minimise · full screen / window · close, like the search button */
+html.us-app .usw{display:flex;align-items:center;gap:8px;margin-left:14px;padding-left:16px;position:relative}
+html.us-app .usw:before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:1px;background:linear-gradient(180deg,transparent,rgba(226,192,124,.45),transparent)}
+html.us-app .usw .dk-bar-icon{width:40px;height:40px;border-radius:12px}
+html.us-app .usw svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+html.us-app .usw .dk-bar-icon:hover{background:rgba(226,192,124,.16);border-color:rgba(226,192,124,.5)}
+html.us-app .usw .usw-x:hover{background:linear-gradient(180deg,#b3322a,#8c211b);border-color:rgba(255,180,160,.5);color:#fff}
 /* a little more room on very wide windows */
 html.us-app body.desk{--pad:44px}

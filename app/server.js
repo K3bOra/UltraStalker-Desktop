@@ -105,6 +105,14 @@ export async function startServer({ webDir, relayFile, appCssFile, userDir, port
       res.writeHead(400).end();
       return;
     }
+    // the program's own window buttons
+    if (url.pathname === "/__app/window-ui.js") {
+      const f = path.join(path.dirname(appCssFile || ""), "window-ui.js");
+      if (appCssFile && fs.existsSync(f)) {
+        res.writeHead(200, Object.assign({ "Content-Type": TYPES[".js"], "Cache-Control": "no-cache" }, ISOLATE));
+        return res.end(fs.readFileSync(f));
+      }
+    }
     // Short links for VLC (its control line can't carry a 3,000-character ticket).
     const short = url.pathname.match(/^\/v\/([A-Za-z0-9]{10,24})(?:\.[a-z0-9]{1,5})?$/);
     if (short) {
@@ -168,7 +176,7 @@ export async function startServer({ webDir, relayFile, appCssFile, userDir, port
         }
         if (type.startsWith("text/html")) {
           let html = fs.readFileSync(file, "utf8");
-          const inject = `<script>document.documentElement.classList.add("us-app");window.US_APP=${JSON.stringify({ version: version || "" })};</script>` + (appCss ? `<style id="usAppCss">${appCss}</style>` : "");
+          const inject = `<script>document.documentElement.classList.add("us-app");window.US_APP=${JSON.stringify({ version: version || "" })};</script>` + (appCss ? `<style id="usAppCss">${appCss}</style>` : "") + '<script defer src="/__app/window-ui.js"></script>';
           html = html.replace("</head>", inject + "</head>");
           res.writeHead(200, head);
           return res.end(html);

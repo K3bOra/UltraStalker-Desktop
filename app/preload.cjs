@@ -18,4 +18,9 @@ contextBridge.exposeInMainWorld("usNative", {
     fit: (f) => ipcRenderer.send("vlc:fit", f),
   },
   openLogs: () => ipcRenderer.send("app:logs"),
+  win: {
+    cmd: (c) => ipcRenderer.send("win:cmd", c),
+    state: () => ipcRenderer.sendSync("win:state"),
+    onState: (cb) => ipcRenderer.on("win:state", (_, s) => cb(s)),
+  },
 });
