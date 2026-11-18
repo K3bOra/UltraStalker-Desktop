@@ -32,8 +32,17 @@ html.us-app body.desk{--pad:44px}
   html.us-app body.desk #dkBar::after {
     content: none !important;
   }
-  html.us-app body.dk-frame .dk-tvc-list button + button::before {
+  html.us-app body.dk-frame .dk-tvc-list button::before {
     content: none !important;
+  }
+  html.us-app body.dk-frame .dk-tvc-list button:not([hidden]) ~ button:not([hidden])::before {
+    content: "" !important;
+    position: absolute;
+    inset: -1px 12px auto;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #e6ca93 14%, #e6ca93 86%, transparent) !important;
+    opacity: .64 !important;
+    pointer-events: none;
   }
   /* Keep a single continuous canvas behind the title, navigation and wall.
      Apply the reading shade once, on the background instead of on each pane. */
@@ -203,4 +212,31 @@ html.us-app #dkBar .dk-qb .dk-ic svg {
   color: var(--gold-1, #e2c07c);
   font: inherit;
   cursor: pointer;
+}
+
+html.us-app #dkSrcBtn > i {
+  display: grid;
+  place-content: center;
+  gap: 2px;
+  width: 18px;
+  height: 24px;
+  flex: none;
+  margin-inline: auto 0;
+  font-size: 0;
+  color: #edd39b;
+  transform: none;
+}
+html.us-app #dkSrcBtn > i svg { display: none; }
+html.us-app #dkSrcBtn > i::before, html.us-app #dkSrcBtn > i::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  box-sizing: border-box;
+  border-top: 1.7px solid currentColor;
+  border-left: 1.7px solid currentColor;
+  border-radius: 1px;
+  transform: translateY(1px) rotate(45deg);
+}
+html.us-app #dkSrcBtn > i::after {
+  transform: translateY(-1px) rotate(225deg);
 }
