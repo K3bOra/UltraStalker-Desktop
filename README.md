@@ -17,6 +17,18 @@ What the program adds over the website:
   drawn inside the player window, with the program's own controls driving it.
 - **Open in VLC** still hands the channel to a separate VLC when wanted.
 
+## Server file cleaner and checker (2.5.0)
+
+Open **Import Servers** in the sidebar or on Home, then choose a TXT, JSON, M3U
+or M3U8 server file. The same tool as the desktop/mobile website removes duplicate
+subscriptions and checks Stalker Portal, Xtream and M3U accounts through this
+computer's local relay. A working result requires actual media bytes, not just a
+successful login; account expiry and failed checks appear beside each result.
+
+Stop/recheck at any time, download the cleaned file or only working subscriptions,
+and add selected or all working servers without replacing saved sources or Favorites.
+Files up to 5 MB / 1,000 subscriptions are supported.
+
 Saved sources, favorites and settings stay on the computer. The receiver backup
 (save / restore) works exactly as on the website.
 
@@ -34,6 +46,13 @@ which the installer carries. Without it, an installed VLC is used.
 repository into `bundle/`. The GitHub workflow builds the installer on every push to
 `v2` and keeps it as the run's artifact.
 
+The Windows workflow pins the shared interface to tested commit
+`5dec24a6ff21091b162d3655ba92f8d73c7672af`, which includes Import Servers.
+Use that revision (or a newer compatible checkout) for local builds too. Bundling
+rejects older web sources that lack the cleaner/checker. `npm test` checks import,
+deduplication, exports and actual stream verification through the desktop relay
+using in-memory test providers; it does not contact real subscriptions.
+
 ## Layout
 
 - `app/main.js` — window, title bar, downloads, single instance
@@ -48,3 +67,4 @@ repository into `bundle/`. The GitHub workflow builds the installer on every pus
 
 The earlier PySide6 program is kept unchanged on the `main`, `new-ui` and
 `desktop-windows-stability` branches.
+

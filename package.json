@@ -1,7 +1,7 @@
 {
   "name": "ultra-stalker",
   "productName": "Ultra Stalker",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Ultra Stalker for Windows — Live TV, movies and series from your own Portal, Xtream and M3U sources.",
   "author": "Ahmed L-HadarY",
   "license": "UNLICENSED",
@@ -12,7 +12,7 @@
     "bundle": "node scripts/bundle-web.mjs",
     "start": "npm run bundle && electron .",
     "dist": "npm run bundle && electron-builder --win nsis --x64 --publish never",
-    "test": "node --test tests/server.test.js tests/vlc-rc.test.js"
+    "test": "node --test tests/server.test.js tests/vlc-rc.test.js tests/import.test.js"
   },
   "devDependencies": {
     "electron": "^45.3.3",
@@ -44,3 +44,4 @@
     }
   }
 }
+
