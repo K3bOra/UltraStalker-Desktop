@@ -29,6 +29,16 @@ test("local server", { skip: !fs.existsSync(path.join(bundle, "web", "index.html
     const html = await page.text();
     assert.match(html, /us-app/);
     assert.match(html, /usAppCss/);
+    assert.match(html, /sources\.html#importPanel/);
+
+    // The installer must carry the same cleaner/checker as the mobile/desktop web UI.
+    const sources = await (await fetch(origin + "/sources.html")).text();
+    assert.match(sources, /id="importPanel"/);
+    assert.match(sources, /import\.js\?v=/);
+    assert.match(sources, /usAppCss/);
+    const importer = await fetch(origin + "/import.js");
+    assert.equal(importer.status, 200);
+    assert.match(await importer.text(), /checkImportedProfile/);
 
     const cfg = await (await fetch(origin + "/config.js")).text();
     assert.match(cfg, new RegExp(origin.replace(/[.:/]/g, "\\$&")));
@@ -54,3 +64,4 @@ test("local server", { skip: !fs.existsSync(path.join(bundle, "web", "index.html
     server.close();
   }
 });
+
