@@ -27,9 +27,11 @@
     if (!el || el.hidden || el.disabled || el.closest("[hidden],.hidden,[aria-hidden=true],[inert]")) return false;
     const r = el.getBoundingClientRect();
     if (r.width < 4 || r.height < 4) return false;
+    // (not opacity: menus and panels fade in; the player's hidden controls are "idle")
+    if (el.closest(".usp-stage.idle .usp-bar")) return false;
     for (let e = el; e && e !== document.body; e = e.parentElement) {
       const cs = getComputedStyle(e);
-      if (cs.display === "none" || cs.visibility === "hidden" || +cs.opacity < 0.05) return false;
+      if (cs.display === "none" || cs.visibility === "hidden") return false;
     }
     return true;
   }
@@ -122,7 +124,10 @@
   }
   function controls() {
     const b = box();
-    return b ? items(b.querySelector(".usp-bar")).filter((el) => !el.closest(".usx-strip") || el.matches("button")) : [];
+    if (!b) return [];
+    const s = stage();
+    if (s) s.classList.remove("idle");
+    return items(b.querySelector(".usp-bar")).filter((el) => !el.closest(".usx-strip") || el.matches("button"));
   }
   function showControls() {
     wake();

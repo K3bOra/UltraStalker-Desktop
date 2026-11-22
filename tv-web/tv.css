@@ -3,7 +3,7 @@ html.us-tv body{cursor:none}
 html.us-tv :focus{outline:none}
 html.us-tv :focus-visible,html.us-tv [tabindex="-1"]:focus{outline:3px solid #f2d48c!important;outline-offset:3px;box-shadow:0 0 0 7px rgba(226,192,124,.22),0 14px 34px -12px rgba(226,192,124,.65)!important;position:relative;z-index:3}
 html.us-tv :is(.poster-card,.live-card,.item-card,.dk-src):focus{transform:scale(1.05);transition:transform .15s ease}
-html.us-tv .usp-ic:focus-visible{background:rgba(240,222,180,.2)!important;outline-offset:1px;border-radius:12px}
+html.us-tv .usp-ic:not(.pp):focus-visible{background:rgba(240,222,180,.2)!important;outline-offset:1px;border-radius:12px}
 html.us-tv .usp-ic.pp:focus-visible{border-radius:50%;outline-offset:3px}
 html.us-tv .usp-menu button:focus-visible{background:rgba(240,222,180,.16)!important;outline-offset:-2px}
 /* the TV has no mouse to hover: keep what hover would show */
