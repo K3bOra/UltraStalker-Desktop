@@ -17,6 +17,36 @@ What the program adds over the website:
   drawn inside the player window, with the program's own controls driving it.
 - **Open in VLC** still hands the channel to a separate VLC when wanted.
 
+## What 2.6 adds
+
+- **Next episode.** A button (and the N key) next to the 10-second buttons; when an
+  episode ends, a 10-second countdown plays the next one (also the first episode of
+  the next season). Cancel or Play now.
+- **Speed** (Settings, or `[` `]`): ½ to 2× — VLC uses its own steps (½ · 1 · 1.5 · 2).
+- **Sleep timer** (Settings): stops playback after 15 / 30 / 60 / 90 minutes.
+- **Shortcuts:** Space, ← →, ↑ ↓, mouse wheel = volume, PgUp/PgDn, F, M, N, `[` `]`,
+  0–9 (jump to 0–90 %), S, R, P. The list is in Settings.
+- **Pictures (S)** go to *Pictures\Ultra Stalker*: VLC saves its own; the browser
+  player sends the frame; the Ultra engine's picture is taken from the window.
+- **Recording live channels (R)** to *Videos\Ultra Stalker* (.ts). The bytes the player
+  is already receiving through the local server are copied — no second connection to
+  the line. A recording stops with the channel.
+- **Mini player (P):** the same window, small, in the screen's corner and above every
+  other window, with its own title bar. Works with every engine, VLC included.
+- **Updates by itself:** each version that passes the installed self-test on `v2` is
+  published as a GitHub release (installer, blockmap, `latest.yml`). The program checks
+  20 s after starting and every 4 hours, downloads in the background and offers
+  "Restart now"; otherwise it installs when the program closes.
+- **Remembers:** the window's size and place, and opens the last live channel at start
+  (Settings → Program to turn it off).
+- **No adult content:** adult / +18 / XXX / "censored" categories, channels, movies and
+  series are removed from categories, lists (also "All"), search and favorites, and
+  can't be played (`app/adult-filter.js`).
+- Controls hide after 3 seconds in full screen with VLC too: the program watches the
+  mouse over VLC's picture window, and VLC's picture grows to the whole player while
+  the controls are hidden. New 10-second icons.
+- The program no longer reloads the page when the window crosses 1100 px.
+
 ## Player and browsing fixes (2.5.1)
 
 - Settings opens picture, buffer and engine controls; audio/subtitles have their own button.

@@ -1,7 +1,7 @@
 {
   "name": "ultra-stalker",
   "productName": "Ultra Stalker",
-  "version": "2.5.1",
+  "version": "2.6.0",
   "description": "Ultra Stalker for Windows — Live TV, movies and series from your own Portal, Xtream and M3U sources.",
   "author": "Ahmed L-HadarY",
   "license": "UNLICENSED",
@@ -23,12 +23,37 @@
     "appId": "com.k3bora.ultrastalker",
     "productName": "Ultra Stalker",
     "copyright": "Ahmed L-HadarY",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["app/**/*", "package.json"],
-    "extraResources": [{ "from": "bundle", "to": "bundle" }, { "from": "vlc", "to": "vlc", "filter": ["**/*"] }],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "app/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "bundle",
+        "to": "bundle"
+      },
+      {
+        "from": "vlc",
+        "to": "vlc",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
     "asar": true,
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "build/icon.ico",
       "artifactName": "UltraStalker-Setup-${version}.${ext}"
     },
@@ -42,7 +67,17 @@
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "deleteAppDataOnUninstall": false
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "K3bOra",
+        "repo": "UltraStalker-Desktop",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
   }
 }
-

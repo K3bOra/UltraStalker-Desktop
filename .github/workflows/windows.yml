@@ -8,7 +8,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # v2 publishes each new version as a GitHub release: the program updates itself from it
+  contents: write
 
 jobs:
   build:
@@ -96,6 +97,7 @@ jobs:
         run: npx electron-builder --win nsis --x64 --publish never
 
       - name: Self-test the installed program (like a first start on a user's PC)
+        id: installed
         continue-on-error: true
         timeout-minutes: 6
         shell: pwsh
@@ -132,5 +134,25 @@ jobs:
           path: |
             dist/*.exe
             dist/*.sha256.txt
+            dist/*.blockmap
+            dist/latest.yml
           retention-days: 30
+
+      # The programs already installed find this release and update themselves
+      # (latest.yml names the installer and its checksum). Only a version that passed the
+      # installed self-test, only from v2, and each version once.
+      - name: Publish the update
+        if: github.ref == 'refs/heads/v2' && steps.installed.outcome == 'success'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          gh release view "v$v" --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { Write-Host "v$v is already published"; exit 0 }
+          if (-not (Test-Path dist\latest.yml)) { throw "latest.yml missing" }
+          gh release create "v$v" "dist\UltraStalker-Setup-$v.exe" "dist\UltraStalker-Setup-$v.exe.blockmap" dist\latest.yml `
+            --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Ultra Stalker $v" `
+            --notes "Ultra Stalker for Windows $v. Installed programs update themselves; new installs: download UltraStalker-Setup-$v.exe."
+          if ($LASTEXITCODE -ne 0) { throw "release failed" }
 

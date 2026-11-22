@@ -3,12 +3,13 @@
    Starts the local server (interface + relay on 127.0.0.1) and opens one window on it.
    The window has no Windows title bar: the app's own gold top bar is the title bar, and
    the minimise / maximise / close buttons sit inside it in the same colours. */
-import { app, BrowserWindow, shell, session, nativeTheme, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, shell, session, nativeTheme, dialog, ipcMain, screen } from "electron";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
-import { startServer } from "./server.js";
+import { startServer, createRecorder } from "./server.js";
+import { setupUpdates } from "./updates.js";
 import { setupVlc, log } from "./vlc.js";
 import http from "node:http";
 
@@ -36,6 +37,22 @@ function bundleDir() {
 }
 
 let win = null;
+const recorder = createRecorder();
+/* Where pictures (S) and recordings (R) go: Pictures\Ultra Stalker, Videos\Ultra Stalker */
+const snapDir = () => path.join(app.getPath("pictures"), "Ultra Stalker");
+const recDir = () => path.join(app.getPath("videos"), "Ultra Stalker");
+function fileName(title, ext) {
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  const stamp = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`;
+  const name = String(title || "Ultra Stalker").replace(/[\u0000-\u001f\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80).replace(/[. ]+$/, "") || "Ultra Stalker";
+  return `${name} ${stamp}.${ext}`;
+}
+/* A remembered window place that is still on one of the screens (a monitor may be gone). */
+function onScreen(b) {
+  if (!b || ![b.x, b.y, b.width, b.height].every(Number.isFinite) || b.width < 400 || b.height < 300) return null;
+  const ok = screen.getAllDisplays().some(({ workArea: a }) => b.x < a.x + a.width - 80 && b.x + b.width > a.x + 80 && b.y >= a.y - 20 && b.y < a.y + a.height - 80);
+  return ok ? b : null;
+}
 /* Remembered window choice (full screen or window) in the user folder. */
 const prefsFile = () => path.join(app.getPath("userData"), "window.json");
 let prefs = {};
@@ -56,9 +73,11 @@ function savePrefs(p) {
 async function createWindow(origin, shortLink) {
   loadPrefs();
   nativeTheme.themeSource = "dark";
+  const place = onScreen(prefs.bounds);
   win = new BrowserWindow({
-    width: 1600,
-    height: 940,
+    width: place ? place.width : 1600,
+    height: place ? place.height : 940,
+    ...(place ? { x: place.x, y: place.y } : {}),
     minWidth: 900,
     minHeight: 600,
     show: false,
@@ -92,8 +111,48 @@ async function createWindow(origin, shortLink) {
       done({ requestHeaders: headers });
     }
   );
-  const sendState = () => !win.isDestroyed() && win.webContents.send("win:state", { full: win.isFullScreen(), max: win.isMaximized() });
+  const winState = () => ({ full: win.isFullScreen(), max: win.isMaximized(), mini: !!miniFrom });
+  const sendState = () => !win.isDestroyed() && win.webContents.send("win:state", winState());
   for (const ev of ["enter-full-screen", "leave-full-screen", "maximize", "unmaximize"]) win.on(ev, sendState);
+  /* Mini player: the same window, small, in the screen's corner and above every other
+     window; the page shows only the player. Back: where and how it was. */
+  let miniFrom = null;
+  const setMini = (on) => {
+    if (on && !miniFrom) {
+      miniFrom = { full: win.isFullScreen(), max: win.isMaximized(), bounds: win.getNormalBounds() };
+      const go = () => {
+        const a = screen.getDisplayMatching(win.getBounds()).workArea;
+        const w = 520, h = 325;
+        win.setMinimumSize(320, 210);
+        win.setBounds({ x: a.x + a.width - w - 20, y: a.y + a.height - h - 20, width: w, height: h });
+        win.setAlwaysOnTop(true, "floating");
+        sendState();
+      };
+      if (win.isFullScreen()) {
+        win.once("leave-full-screen", () => setTimeout(go, 80));
+        win.setFullScreen(false);
+      } else {
+        if (win.isMaximized()) win.unmaximize();
+        go();
+      }
+    } else if (!on && miniFrom) {
+      const f = miniFrom;
+      miniFrom = null;
+      win.setAlwaysOnTop(false);
+      win.setMinimumSize(900, 600);
+      win.setBounds(f.bounds);
+      if (f.max) win.maximize();
+      if (f.full) win.setFullScreen(true);
+      sendState();
+    }
+  };
+  // remember the window's place and size (not the mini player's)
+  win.on("close", () => {
+    const b = miniFrom ? miniFrom.bounds : win.getNormalBounds();
+    savePrefs({ bounds: b });
+    const r = recorder.stop();
+    if (r) log("recording saved on close:", r.file, r.bytes, "bytes");
+  });
   const toggleFull = () => {
     const on = !win.isFullScreen();
     win.setFullScreen(on);
@@ -108,12 +167,69 @@ async function createWindow(origin, shortLink) {
   ipcMain.removeAllListeners("win:cmd");
   ipcMain.on("win:cmd", (_, c) => {
     if (c === "min") win.minimize();
-    else if (c === "full") toggleFull();
+    else if (c === "mini") setMini(true);
+    else if (c === "unmini") setMini(false);
+    else if (c === "full") {
+      if (miniFrom) setMini(false);
+      else toggleFull();
+    }
     else if (c === "close") win.close();
   });
   ipcMain.removeAllListeners("win:state");
-  ipcMain.on("win:state", (e) => (e.returnValue = { full: win.isFullScreen(), max: win.isMaximized() }));
-  const vlc = setupVlc({ win, bundle: bundleDir(), shortLink });
+  ipcMain.on("win:state", (e) => (e.returnValue = winState()));
+  const vlc = setupVlc({ win, bundle: bundleDir(), shortLink, snapDir: snapDir() });
+
+  /* Pictures (S): VLC saves its own; the browser player sends the picture; the Ultra
+     engine's picture is taken from the window. */
+  for (const n of ["app:snap", "rec:start", "rec:stop", "rec:status"]) ipcMain.removeHandler(n);
+  ipcMain.handle("app:snap", async (_, o) => {
+    try {
+      o = o || {};
+      const dir = snapDir();
+      fs.mkdirSync(dir, { recursive: true });
+      const file = path.join(dir, fileName(o.title, "png"));
+      if (o.vlc) fs.renameSync(await vlc.snapshot(), file);
+      else if (typeof o.dataUrl === "string" && o.dataUrl.startsWith("data:image/png;base64,")) {
+        const png = Buffer.from(o.dataUrl.slice(22), "base64");
+        if (png.length < 100) throw new Error("empty picture");
+        fs.writeFileSync(file, png);
+      } else if (o.rect) {
+        const r = o.rect;
+        const rect = { x: Math.max(0, r.x | 0), y: Math.max(0, r.y | 0), width: Math.max(1, r.width | 0), height: Math.max(1, r.height | 0) };
+        const img = await win.webContents.capturePage(rect);
+        if (img.isEmpty()) throw new Error("empty picture");
+        fs.writeFileSync(file, img.toPNG());
+      } else throw new Error("nothing to save");
+      log("picture saved", file);
+      return { ok: true, file, folder: dir };
+    } catch (e) {
+      log("picture failed:", (e && e.message) || e);
+      return { ok: false, error: String((e && e.message) || e) };
+    }
+  });
+  /* Recording (R): the live channel's bytes as they pass through the local server. */
+  ipcMain.handle("rec:start", (_, o) => {
+    try {
+      const file = path.join(recDir(), fileName(o && o.title, "ts"));
+      recorder.start(file);
+      log("recording", file);
+      return { ok: true, file, folder: recDir() };
+    } catch (e) {
+      return { ok: false, error: String((e && e.message) || e) };
+    }
+  });
+  ipcMain.handle("rec:stop", () => {
+    const r = recorder.stop();
+    if (r) log("recording saved", r.file, r.bytes, "bytes", r.seconds, "s");
+    return r ? Object.assign({ ok: true, folder: recDir() }, r) : { ok: false };
+  });
+  ipcMain.handle("rec:status", () => recorder.status());
+  ipcMain.removeAllListeners("app:show");
+  ipcMain.on("app:show", (_, file) => {
+    const f = path.resolve(String(file || ""));
+    if ([snapDir(), recDir()].some((d) => f.startsWith(d + path.sep)) && fs.existsSync(f)) shell.showItemInFolder(f);
+  });
+  setupUpdates(win);
   if (process.env.US_SELFTEST) win.webContents.once("did-finish-load", () => selfTest(vlc).catch((e) => (console.error(e), app.exit(3))));
   else win.webContents.once("did-finish-load", () => setTimeout(() => vlc.warm(), 1500));
   win.once("ready-to-show", () => {
@@ -165,7 +281,18 @@ async function selfTest(vlc) {
   const file = process.env.US_SELFTEST_FILE;
   const srv = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "video/mp2t" });
-    fs.createReadStream(file).pipe(res);
+    // the 8-second file six times over, so there is time for every check
+    const data = fs.readFileSync(file);
+    let n = 0;
+    const more = () => {
+      while (n < 6) {
+        n++;
+        if (!res.write(data)) return res.once("drain", more);
+      }
+      res.end();
+    };
+    res.on("error", () => {});
+    more();
   });
   await new Promise((r) => srv.listen(0, "127.0.0.1", r));
   await new Promise((r) => setTimeout(r, 1500));
@@ -195,6 +322,7 @@ app.whenReady().then(async () => {
       port: PORT,
       cloudRelay: CLOUD_RELAY,
       version: app.getVersion(),
+      recorder,
     }));
   } catch (e) {
     dialog.showErrorBox("Ultra Stalker", "Ultra Stalker could not start its local service (port " + PORT + " is busy?).\n\n" + String((e && e.message) || e));

@@ -35,7 +35,7 @@ fs.copyFileSync(path.join(src, "worker", "src", "index.js"), path.join(out, "rel
 // Keep desktop fixes with this repository instead of changing the deployed website.
 // A changed upstream must pass the patch check rather than silently losing a fix.
 // Windows checkouts can contain CRLF; apply the same patch on every platform.
-for (const file of ["player.js", "desktop.js"]) {
+for (const file of ["player.js", "desktop.js", "engine.js"]) {
   const target = path.join(out, "web", file);
   fs.writeFileSync(target, fs.readFileSync(target, "utf8").replace(/\r\n/g, "\n"));
 }
@@ -45,7 +45,16 @@ const playerFile = path.join(out, "web", "player.js");
 const controller = fs.readFileSync(path.join(root, "app", "seek-controller.js"), "utf8").replace(/^export /m, "");
 const player = fs.readFileSync(playerFile, "utf8");
 if (!player.includes("/* US_DESKTOP_SEEK_CONTROLLER */")) throw new Error("Desktop seek controller marker missing");
-fs.writeFileSync(playerFile, player.replace("/* US_DESKTOP_SEEK_CONTROLLER */", controller));
+const extras = fs.readFileSync(path.join(root, "app", "player-extras.js"), "utf8");
+if (!player.includes("/* US_DESKTOP_PLAYER_EXTRAS */")) throw new Error("Desktop player extras marker missing");
+// Replacement functions, not strings: the embedded code contains "$" characters.
+fs.writeFileSync(playerFile, player.replace("/* US_DESKTOP_SEEK_CONTROLLER */", () => controller).replace("/* US_DESKTOP_PLAYER_EXTRAS */", () => extras));
+// No adult content in the program: the filter runs inside the interface's engine.
+const engineFile = path.join(out, "web", "engine.js");
+const engine = fs.readFileSync(engineFile, "utf8");
+if (!engine.includes("/* US_DESKTOP_ADULT_FILTER */")) throw new Error("Adult filter marker missing");
+const adult = fs.readFileSync(path.join(root, "app", "adult-filter.js"), "utf8").replace(/^export /gm, "");
+fs.writeFileSync(engineFile, engine.replace("/* US_DESKTOP_ADULT_FILTER */", () => adult + "\n  installAdultFilter({ API, q, cached, WebError });"));
 let count = 0;
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : count++));
 walk(out);

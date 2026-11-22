@@ -70,7 +70,7 @@ export function log(...parts) {
   } catch (_) {}
 }
 
-export function setupVlc({ win, bundle, shortLink }) {
+export function setupVlc({ win, bundle, shortLink, snapDir }) {
   const exe = findVlc(bundle);
   const vlcLog = path.join(LOG_DIR(), "vlc-log.txt");
   let logMark = 0;
@@ -171,6 +171,11 @@ export function setupVlc({ win, bundle, shortLink }) {
         "--no-sub-autodetect-file",
         "--no-metadata-network-access",
         "--avcodec-hw=any",
+        // pictures (S): VLC saves them here, the program renames them
+        snapDir ? "--snapshot-path=" + snapDir : "",
+        "--snapshot-format=png",
+        "--snapshot-prefix=ultra-stalker-vlc-",
+        "--no-snapshot-sequential",
         "--http-reconnect",
         "--stats",
         "--verbose=0",
@@ -263,11 +268,33 @@ export function setupVlc({ win, bundle, shortLink }) {
     proc = null;
   }
 
+  /* VLC's picture is a window of its own, so the page doesn't see the mouse moving over
+     it. Watch the cursor while the picture shows and tell the page (the controls come
+     back on a move, and hide again when the mouse rests). */
+  let ptrTimer = null, lastPt = null;
+  function pointerWatch(on) {
+    if (on && !ptrTimer) {
+      ptrTimer = setInterval(() => {
+        if (!vwin || vwin.isDestroyed() || !vwin.isVisible() || win.isDestroyed()) return;
+        const p = screen.getCursorScreenPoint();
+        if (lastPt && (p.x !== lastPt.x || p.y !== lastPt.y)) {
+          const b = vwin.getBounds();
+          if (p.x >= b.x && p.y >= b.y && p.x < b.x + b.width && p.y < b.y + b.height) win.webContents.send("vlc:pointer");
+        }
+        lastPt = p;
+      }, 200);
+    } else if (!on && ptrTimer) {
+      clearInterval(ptrTimer);
+      ptrTimer = null;
+      lastPt = null;
+    }
+  }
   /* Picture placement: page coordinates (CSS px) → screen, in step with the window. */
   function place() {
     if (!vwin || vwin.isDestroyed()) return;
     if (!rect || !win || win.isDestroyed() || win.isMinimized() || !win.isVisible()) {
       if (vwin.isVisible()) vwin.hide();
+      pointerWatch(false);
       return;
     }
     const cb = win.getContentBounds();
@@ -275,6 +302,7 @@ export function setupVlc({ win, bundle, shortLink }) {
     const b = { x: Math.round(cb.x + rect.x * z), y: Math.round(cb.y + rect.y * z), width: Math.max(2, Math.round(rect.w * z)), height: Math.max(2, Math.round(rect.h * z)) };
     vwin.setBounds(b);
     if (!vwin.isVisible()) vwin.showInactive();
+    pointerWatch(true);
     applyFit();
   }
   let fitKey = "";
@@ -288,7 +316,7 @@ export function setupVlc({ win, bundle, shortLink }) {
     rc.cmd("vcrop " + crop).catch(() => {});
   }
   for (const ev of ["move", "resize", "maximize", "unmaximize", "restore", "enter-full-screen", "leave-full-screen", "show"]) win.on(ev, place);
-  win.on("minimize", () => vwin && !vwin.isDestroyed() && vwin.hide());
+  win.on("minimize", () => (vwin && !vwin.isDestroyed() && vwin.hide(), pointerWatch(false)));
   win.on("hide", () => vwin && !vwin.isDestroyed() && vwin.hide());
   win.webContents.on("render-process-gone", () => {
     rect = null;
@@ -351,7 +379,23 @@ export function setupVlc({ win, bundle, shortLink }) {
     });
   });
   const ALLOWED = { pause: false, play: false, volume: true, seek: true, atrack: true, strack: true };
+  /* Playback speed: VLC's control has no "rate", but "normal", "faster" and "slower"
+     step through VLC's own speeds (… ½ · ⅔ · 1 · 1.5 · 2 …). The page offers these four. */
+  const RATES = { "0.50": ["slower", "slower"], "1.00": [], "1.50": ["faster"], "2.00": ["faster", "faster"] };
+  function rateLines(arg) {
+    const key = Number.isFinite(Number(arg)) ? Number(arg).toFixed(2) : "";
+    return RATES[key] ? ["normal"].concat(RATES[key]) : null;
+  }
   ipcMain.handle("vlc:cmd", async (_, name, arg) => {
+    if (name === "rate") {
+      const lines = rateLines(arg);
+      if (!lines || !rc || rc.closed) return false;
+      return queue(async () => {
+        await resumeIfPaused(rc);
+        for (const l of lines) await rc.cmd(l);
+        return true;
+      });
+    }
     if (!(name in ALLOWED) || !rc || rc.closed) return false;
     let line = name;
     if (ALLOWED[name]) {
@@ -428,6 +472,34 @@ export function setupVlc({ win, bundle, shortLink }) {
     applyFit();
   });
 
+  /* A picture of what VLC shows (S): the file VLC writes into snapDir. */
+  async function snapshot() {
+    if (!rc || rc.closed || !snapDir) throw new Error("VLC isn't playing");
+    fs.mkdirSync(snapDir, { recursive: true });
+    const before = new Set(fs.readdirSync(snapDir));
+    await queue(async () => {
+      await resumeIfPaused(rc);
+      await rc.cmd("snapshot");
+    });
+    for (let i = 0; i < 40; i++) {
+      const fresh = fs.readdirSync(snapDir).filter((f) => f.startsWith("ultra-stalker-vlc-") && !before.has(f));
+      if (fresh.length) {
+        const f = path.join(snapDir, fresh[0]);
+        // wait until VLC has finished writing it
+        let size = -1;
+        for (let j = 0; j < 20; j++) {
+          const now = fs.statSync(f).size;
+          if (now > 0 && now === size) return f;
+          size = now;
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        return f;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    throw new Error("VLC didn't save a picture");
+  }
+
   app.on("before-quit", kill);
   win.on("closed", () => {
     kill();
@@ -483,6 +555,31 @@ export function setupVlc({ win, bundle, shortLink }) {
       result.pausedPollOk = paused.state === "paused" && paused.time === last.time && result.pausedPollMs < 1500;
       result.ok = result.pausedPollOk;
       await resumeIfPaused(rc);
+      // pictures (S) and speed (2.6): reported, the release doesn't wait for them
+      try {
+        for (const l of rateLines("2.00")) await rc.cmd(l);
+        // 3 seconds at double speed: about 6 seconds of picture (the test file restarts
+        // every 8 seconds, so only forward steps count)
+        let moved = 0, last = await rc.number("get_time");
+        for (let i = 0; i < 12; i++) {
+          await new Promise((ok) => setTimeout(ok, 250));
+          const t = await rc.number("get_time");
+          if (t > last && t - last <= 2) moved += t - last;
+          last = t;
+        }
+        for (const l of rateLines("1.00")) await rc.cmd(l);
+        result.rate = { ok: moved >= 4.5, advanced: moved, state: await rc.number("is_playing") };
+      } catch (e) {
+        result.rate = { ok: false, error: String((e && e.message) || e) };
+      }
+      try {
+        const f = await snapshot();
+        const bytes = fs.statSync(f).size;
+        fs.copyFileSync(f, path.join(outDir, "snapshot.png"));
+        result.snapshot = { ok: bytes > 1000, bytes };
+      } catch (e) {
+        result.snapshot = { ok: false, error: String((e && e.message) || e) };
+      }
     }
     try {
       result.log = fs.readFileSync(path.join(LOG_DIR(), "ultra-stalker-log.txt"), "utf8").slice(-4000);
@@ -491,5 +588,5 @@ export function setupVlc({ win, bundle, shortLink }) {
     return result;
   }
 
-  return { exe, selfTest, warm };
+  return { exe, selfTest, warm, snapshot, rateLines };
 }

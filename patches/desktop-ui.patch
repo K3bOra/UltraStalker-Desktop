@@ -1,8 +1,18 @@
 diff --git a/web/desktop.js b/web/desktop.js
-index fb76f44..0053af5 100644
+index fb76f44..a4e50ab 100644
 --- a/web/desktop.js
 +++ b/web/desktop.js
-@@ -1494,7 +1494,10 @@
+@@ -10,7 +10,8 @@
+   const WIDE = window.matchMedia("(min-width: 1100px)");
+   // The Windows program is always laid out for a computer, whatever its window size.
+   const DESK = (WIDE.matches || document.documentElement.classList.contains("us-app") || /[?&]desk=1/.test(location.search)) && !/[?&]phone=1/.test(location.search);
+-  WIDE.addEventListener("change", () => location.reload());
++  // (not in the program: its layout never changes, and the mini player is a small window)
++  WIDE.addEventListener("change", () => !document.documentElement.classList.contains("us-app") && location.reload());
+   const $ = (id) => document.getElementById(id);
+   const AR = !(window.USLang && !window.USLang.ar);
+   const T = (en, ar) => (AR ? ar : en);
+@@ -1494,7 +1495,10 @@
      drawWelcome();
      sync();
      let t = 0;
@@ -15,14 +25,14 @@ index fb76f44..0053af5 100644
        t = setTimeout(sync, 30);
      }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class"], childList: false });
 diff --git a/web/player.js b/web/player.js
-index ccf82c8..ed97e72 100644
+index ccf82c8..5133723 100644
 --- a/web/player.js
 +++ b/web/player.js
 @@ -82,6 +82,8 @@
  .usp-ic.pp{width:46px;height:46px;border-radius:50%;background:var(--foil);color:#1a1306;box-shadow:0 8px 24px -8px rgba(226,192,124,.8)}
  .usp-ic.pp svg{fill:currentColor;stroke:none}
  .usp-ic[hidden]{display:none}
-+.usp-ic.skip-back svg,.usp-ic.skip-forward svg{width:27px;height:27px;stroke-width:1.7}
++.usp-ic.skip-back svg,.usp-ic.skip-forward svg{width:28px;height:28px;stroke-width:1.8}
 +.usp-ic:disabled{opacity:.35;cursor:default;transform:none}
  .usp-live{display:inline-flex;align-items:center;gap:6px;margin:0 6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.1em;color:#ffd9d9;background:rgba(255,70,70,.14);border:1px solid rgba(255,90,90,.35)}
  .usp-live:before{content:"";width:7px;height:7px;border-radius:50%;background:#ff4d4d;box-shadow:0 0 10px #ff4d4d;animation:uspBlink 1.6s ease-in-out infinite}
@@ -31,8 +41,8 @@ index ccf82c8..ed97e72 100644
    document.head.appendChild(style);
  
    const I = {
-+    back10: '<svg viewBox="0 0 28 28" aria-hidden="true"><path d="M6.4 8.4A9.5 9.5 0 1 1 4.5 17M6.4 3.5v5.4H1"/><text x="14" y="18" text-anchor="middle" fill="currentColor" stroke="none" font-family="system-ui,sans-serif" font-size="10" font-weight="700">10</text></svg>',
-+    forward10: '<svg viewBox="0 0 28 28" aria-hidden="true"><path d="M21.6 8.4A9.5 9.5 0 1 0 23.5 17M21.6 3.5v5.4H27"/><text x="14" y="18" text-anchor="middle" fill="currentColor" stroke="none" font-family="system-ui,sans-serif" font-size="10" font-weight="700">10</text></svg>',
++    back10: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5a8 8 0 1 1-7.4 4.9"/><path d="M14.6 1.9 12 4.5l2.6 2.6"/><text x="12" y="15.4" text-anchor="middle" fill="currentColor" stroke="none" font-size="7.4" font-weight="700" letter-spacing="-.2">10</text></svg>',
++    forward10: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.5a8 8 0 1 0 7.4 4.9"/><path d="M9.4 1.9 12 4.5 9.4 7.1"/><text x="12" y="15.4" text-anchor="middle" fill="currentColor" stroke="none" font-size="7.4" font-weight="700" letter-spacing="-.2">10</text></svg>',
      play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
      pause: '<svg viewBox="0 0 24 24"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg>',
      prev: '<svg viewBox="0 0 24 24"><path d="M18 6 9 12l9 6z"/><path d="M6 6v12"/></svg>',
@@ -96,7 +106,37 @@ index ccf82c8..ed97e72 100644
      q(".prev").onclick = () => opts.onPrev && opts.onPrev();
      q(".next").onclick = () => opts.onNext && opts.onNext();
      q(".mute").onclick = () => {
-@@ -626,7 +645,7 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -600,7 +619,7 @@ body.usp-direct #playerSheet{display:none!important}
+     const wake = () => {
+       stage.classList.remove("idle");
+       clearTimeout(idleTimer);
+-      idleTimer = setTimeout(() => !menu.classList.contains("on") && !A.paused() && !isVlc() && stage.classList.add("idle"), 3200);
++      idleTimer = setTimeout(() => !menu.classList.contains("on") && !A.paused() && stage.classList.add("idle"), 3200);
+     };
+     stage.addEventListener("mousemove", wake);
+     stage.addEventListener("touchstart", wake, { passive: true });
+@@ -611,6 +630,7 @@ body.usp-direct #playerSheet{display:none!important}
+       if (current && !current.live) Promise.resolve(A.toggle()).then(refresh);
+     });
+     stage.addEventListener("dblclick", (e) => !e.target.closest(".usp-bar,.usp-menu") && fullscreen());
++    usX.build(wake);
+ 
+     document.addEventListener("keydown", (e) => {
+       if (box.classList.contains("hidden")) return;
+@@ -618,6 +638,12 @@ body.usp-direct #playerSheet{display:none!important}
+       if (/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || "") && document.activeElement.type !== "range") return;
+       const k = e.key;
+       const live = current && current.live;
++      if (usX.key(e)) {
++        e.preventDefault();
++        wake();
++        refresh();
++        return;
++      }
+       if (k === "Escape") {
+         if (menu.classList.contains("on")) menu.classList.remove("on");
+         else if (box.classList.contains("expanded") || document.fullscreenElement === stage) fullscreen();
+@@ -626,7 +652,7 @@ body.usp-direct #playerSheet{display:none!important}
        } else if (k === " " || k === "k") Promise.resolve(A.toggle()).then(refresh);
        else if (k === "m" || k === "M") A.toggleMute();
        else if (k === "f" || k === "F") fullscreen();
@@ -105,7 +145,16 @@ index ccf82c8..ed97e72 100644
        else if (live && (k === "ArrowUp" || k === "PageUp" || k === "ChannelUp") && opts.onPrev) opts.onPrev();
        else if (live && (k === "ArrowDown" || k === "PageDown" || k === "ChannelDown") && opts.onNext) opts.onNext();
        else if (!live && (k === "ArrowUp" || k === "ArrowDown")) A.setVol(A.vol() + (k === "ArrowUp" ? 0.1 : -0.1));
-@@ -672,6 +691,8 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -656,7 +682,7 @@ body.usp-direct #playerSheet{display:none!important}
+       if ((video.error?.code === 2 && retryViaRelay()) || tryNativeHls() || escalate(fmt ? "format" : "")) return;
+       fail(fmt ? "format" : "");
+     });
+-    video.addEventListener("ended", () => current && current.live && reconnect("ended"));
++    video.addEventListener("ended", () => current && (current.live ? reconnect("ended") : usX.ended()));
+   }
+   function paint(range) {
+     range.style.setProperty("--p", (range.value / range.max) * 100 + "%");
+@@ -672,6 +698,8 @@ body.usp-direct #playerSheet{display:none!important}
      q(".prev").hidden = q(".next").hidden = !(live && opts.onPrev);
      q(".usp-live").style.display = live ? "" : "none";
      const d = A.duration(), t = A.time();
@@ -114,7 +163,15 @@ index ccf82c8..ed97e72 100644
      q(".usp-seek").style.display = !live && d > 0 ? "" : "none";
      q(".usp-time").textContent = !live && !d && t ? fmtClock(t) : "";
      if (!live && d > 0) {
-@@ -734,13 +755,11 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -696,6 +724,7 @@ body.usp-direct #playerSheet{display:none!important}
+     q(".pip").hidden = isEngine() || isVlc() || !document.pictureInPictureEnabled;
+     // Audio & subtitles: always for movies and episodes; for live when there is a choice
+     q(".trk").hidden = !current || (!current.stream && !current.url) || (live && A.audioTracks().length < 2 && !A.subTracks().length);
++    usX.refresh();
+     if (paused) stage.classList.remove("idle");
+   }
+   function osdShow() {
+@@ -734,18 +763,17 @@ body.usp-direct #playerSheet{display:none!important}
        menu.dataset.kind = "tracks";
        menu.onclick = menuClick;
        menu.classList.add("on");
@@ -130,7 +187,18 @@ index ccf82c8..ed97e72 100644
      h += '<h4>Picture</h4><div class="usp-seg">' + fits.map(([k, l]) => `<button type="button" data-f="${k}" class="${fit === k ? "on" : ""}">${l}</button>`).join("") + "</div>";
      if (current && current.live) {
        const bf = store.get("us-buffer", "normal");
-@@ -763,6 +782,7 @@ body.usp-direct #playerSheet{display:none!important}
+       h += '<h4>Buffer</h4><div class="usp-seg">' + [["fast", "Fast"], ["normal", "Normal"], ["smooth", "Smooth"]].map(([k, l]) => `<button type="button" data-b="${k}" class="${bf === k ? "on" : ""}">${l}</button>`).join("") + "</div>";
+     }
++    h += usX.menuHtml();
+     h +=
+       '<h4>Player engine</h4><div class="usp-seg">' +
+       (hasVlc() ? [["auto", "Auto"], ["browser", "Browser"], ["vlc", "VLC"], ["ultra", "Ultra"]] : [["auto", "Auto"], ["browser", "Browser"], ["ultra", "Ultra"]]).map(([k, l]) => `<button type="button" data-e="${k}" class="${mode === k ? "on" : ""}">${l}</button>`).join("") +
+@@ -759,15 +787,18 @@ body.usp-direct #playerSheet{display:none!important}
+     const href = vlcHref(current || {});
+     if (window.usNative && window.usNative.openLogs) h += '<button type="button" data-x="logs">Open program log</button>';
+     h += `<hr><a href="${esc(href)}"${/^data:/.test(href) ? ' download="ultra-stalker.m3u"' : ""}>Open in VLC <small>▶</small></a><button type="button" data-x="copy">Copy stream link</button>`;
++    h += usX.menuEnd();
+     menu.innerHTML = h;
      menu.dataset.kind = "";
      menu.onclick = menuClick;
      menu.classList.add("on");
@@ -138,15 +206,47 @@ index ccf82c8..ed97e72 100644
    }
    function menuClick(e) {
        e.stopPropagation();
-@@ -1163,6 +1183,7 @@ body.usp-direct #playerSheet{display:none!important}
+       const b = e.target.closest("button");
+       if (!b || b.disabled) return;
++      if (usX.menuClick(b)) return;
+       if (b.dataset.a !== undefined) A.selectAudio(+b.dataset.a);
+       else if (b.dataset.s !== undefined) A.selectSub(+b.dataset.s);
+       else if (b.dataset.q !== undefined && hls) {
+@@ -969,6 +1000,7 @@ body.usp-direct #playerSheet{display:none!important}
+     A.applyVol();
+     osdShow();
+     refresh();
++    usX.started();
+     lastFacts = "";
+     setTimeout(announceFacts, 600);
+     // Remember which way this channel plays, so next time it opens on the first try.
+@@ -1163,6 +1195,8 @@ body.usp-direct #playerSheet{display:none!important}
      if (eng && stage.clientWidth && stage.clientHeight) eng.resize(stage.clientWidth, stage.clientHeight);
    }
    function stop() {
 +    seeks.reset();
++    usX.stop();
      alive++;
      clearTimeout(startTimer);
      clearInterval(gate);
-@@ -1317,13 +1338,18 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -1203,6 +1237,7 @@ body.usp-direct #playerSheet{display:none!important}
+     }
+   }
+   function close() {
++    usX.closed();
+     if (stage && document.fullscreenElement === stage) document.exitFullscreen().catch(() => {});
+     if (box) {
+       box.classList.remove("expanded");
+@@ -1265,7 +1300,7 @@ body.usp-direct #playerSheet{display:none!important}
+     eng.on("timeout", onErr);
+     eng.on("resume", () => my === alive && refresh());
+     eng.on("audioContextRunning", () => my === alive && refresh());
+-    eng.on("ended", () => my === alive && (ticket.live ? reconnect("ended") : refresh()));
++    eng.on("ended", () => my === alive && (ticket.live ? reconnect("ended") : (refresh(), usX.ended())));
+     eng.on("firstVideoRendered", () => {
+       if (my !== alive) return;
+       resizeEngine();
+@@ -1317,13 +1352,18 @@ body.usp-direct #playerSheet{display:none!important}
      ticket._vlcRetry = ticket._vlcRetry || 0;
      if (r.version) vs.version = r.version;
      const t0 = Date.now();
@@ -165,12 +265,64 @@ index ccf82c8..ed97e72 100644
        }
        if (my !== alive || !vlcOn || !s) return;
        const keep = { atracks: vs.atracks, stracks: vs.stracks, version: vs.version };
-@@ -1343,7 +1369,7 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -1342,8 +1382,11 @@ body.usp-direct #playerSheet{display:none!important}
+         }
          if (!escalate(why)) fail(why);
        }
-       if (over && started && !ticket.live) refresh();
+-      if (over && started && !ticket.live) refresh();
 -    }, 600);
++      if (over && started && !ticket.live) {
++        refresh();
++        usX.ended();
++      }
 +    }, 1000);
      placeVlc();
    }
    async function vlcTracks() {
+@@ -1366,7 +1409,7 @@ body.usp-direct #playerSheet{display:none!important}
+     if (r.width < 40 || r.height < 40) return null;
+     let right = r.right, bottom = r.bottom;
+     const b = bar.getBoundingClientRect();
+-    if (b.height && b.top > r.top) bottom = Math.min(bottom, b.top - 2);
++    if (b.height && b.top > r.top && !stage.classList.contains("idle")) bottom = Math.min(bottom, b.top - 2);
+     if (menu.classList.contains("on")) {
+       const m = menu.getBoundingClientRect();
+       if (m.width) right = Math.min(right, m.left - 6);
+@@ -1558,7 +1601,7 @@ body.usp-direct #playerSheet{display:none!important}
+     if (!o._again) opts = o;
+     const host = opts.host;
+     if (host) {
+-      if (box.parentNode !== host) host.appendChild(box);
++      if (box.parentNode !== host && !usX.mini) host.appendChild(box);
+       box.classList.add("docked");
+     } else if (box.classList.contains("docked") || box.parentNode !== document.body) {
+       box.classList.remove("docked");
+@@ -1728,5 +1771,6 @@ body.usp-direct #playerSheet{display:none!important}
+     box.classList.add("expanded");
+     updateFullscreenButton();
+   }
++  /* US_DESKTOP_PLAYER_EXTRAS */
+   window.USPlayer = { play, offer, pending, close, vlcHref, fullscreen, video: () => video, engine: () => step(), facts };
+ })();
+diff --git a/web/engine.js b/web/engine.js
+index 02dede0..31946bd 100644
+--- a/web/engine.js
++++ b/web/engine.js
+@@ -555,7 +555,7 @@
+         if (!rows.length) rows = await this.categoryRows(media, "get_genres");
+       }
+       return rows
+-        .map((r) => ({ id: str(r.id ?? r.category_id ?? r.genre_id), title: label(r) }))
++        .map((r) => ({ id: str(r.id ?? r.category_id ?? r.genre_id), title: label(r), censored: String(r.censored ?? "") === "1" || r.censored === true }))
+         .filter((r) => r.id !== "" && r.title);
+     }
+     listParams(media, category, page) {
+@@ -2152,6 +2152,8 @@
+     return { ok: true, removed: before.length - rows.length, message: "Connection removed" };
+   };
+ 
++  /* US_DESKTOP_ADULT_FILTER */
++
+   /* --------------------------------------------------- fetch interception */
+   const nativeFetch = window.fetch.bind(window);
+   function apiPath(input) {

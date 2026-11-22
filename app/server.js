@@ -76,7 +76,7 @@ function readBody(req) {
 /* Hand a fetch Response back to the Node response, streaming the body. When the page
    stops reading (channel change, player closed) the upstream connection is closed too:
    many IPTV lines allow only one stream at a time. */
-async function send(res, req, response) {
+async function send(res, req, response, tap) {
   const headers = {};
   response.headers.forEach((v, k) => {
     if (k !== "content-encoding" && k !== "transfer-encoding") headers[k] = v;
@@ -88,10 +88,54 @@ async function send(res, req, response) {
   req.on("close", stop);
   res.on("close", stop);
   stream.on("error", () => res.destroy());
+  if (tap) stream.on("data", tap);
   stream.pipe(res);
 }
 
-export async function startServer({ webDir, relayFile, appCssFile, userDir, port, cloudRelay, version }) {
+/* Recording a live channel: the picture already comes through this server (VLC, the
+   browser and the Ultra engine all open /play/… here), so the program keeps a copy of
+   those bytes in a file — no second connection to the line, which many lines refuse. */
+export function createRecorder() {
+  let cur = null;
+  const MEDIA = /^(video\/|audio\/|application\/(octet-stream|x-mpegts|mp2t|vnd\.dlna\.mpeg-tts))/i;
+  return {
+    start(file) {
+      this.stop();
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      const out = fs.createWriteStream(file);
+      cur = { file, out, bytes: 0, at: Date.now(), error: "" };
+      out.on("error", (e) => cur && cur.out === out && (cur.error = String(e.message || e)));
+      return { file };
+    },
+    stop() {
+      if (!cur) return null;
+      const r = { file: cur.file, bytes: cur.bytes, seconds: Math.round((Date.now() - cur.at) / 1000), error: cur.error };
+      const { out, file, bytes } = cur;
+      cur = null;
+      out.end(() => {
+        if (!bytes) fs.rm(file, { force: true }, () => {});
+      });
+      return r;
+    },
+    status() {
+      return cur ? { on: true, file: cur.file, bytes: cur.bytes, seconds: Math.round((Date.now() - cur.at) / 1000), error: cur.error } : { on: false };
+    },
+    /* the copy for one relayed response, or null when it isn't the picture */
+    tap(pathname, method, response) {
+      if (!cur || method !== "GET" || !/^\/play\//.test(pathname) || response.status >= 300) return null;
+      const type = response.headers.get("content-type") || "";
+      if (type && !MEDIA.test(type)) return null;
+      const mine = cur;
+      return (chunk) => {
+        if (cur !== mine || mine.error) return;
+        mine.bytes += chunk.length;
+        mine.out.write(chunk);
+      };
+    },
+  };
+}
+
+export async function startServer({ webDir, relayFile, appCssFile, userDir, port, cloudRelay, version, recorder }) {
   const worker = (await import(pathToFileURL(relayFile).href)).default;
   const env = { RELAY_KEY: relayKey(userDir), ALLOW_PRIVATE: "1" };
   const origin = `http://127.0.0.1:${port}`;
@@ -105,9 +149,10 @@ export async function startServer({ webDir, relayFile, appCssFile, userDir, port
       res.writeHead(400).end();
       return;
     }
-    // the program's own window buttons
-    if (url.pathname === "/__app/window-ui.js") {
-      const f = path.join(path.dirname(appCssFile || ""), "window-ui.js");
+    // the program's own window buttons and features
+    const own = url.pathname.match(/^\/__app\/(window-ui|features)\.js$/);
+    if (own) {
+      const f = path.join(path.dirname(appCssFile || ""), own[1] + ".js");
       if (appCssFile && fs.existsSync(f)) {
         res.writeHead(200, Object.assign({ "Content-Type": TYPES[".js"], "Cache-Control": "no-cache" }, ISOLATE));
         return res.end(fs.readFileSync(f));
@@ -134,7 +179,7 @@ export async function startServer({ webDir, relayFile, appCssFile, userDir, port
         if (req.method === "POST") init.body = await readBody(req);
         const response = await worker.fetch(new Request(url.toString(), init), env);
         if (process.env.US_DEBUG) console.log("[relay]", req.method, url.pathname.slice(0, 18), url.search.slice(0, 30), response.status, String(req.headers["user-agent"] || "").slice(0, 30));
-        return send(res, req, response);
+        return send(res, req, response, recorder && recorder.tap(url.pathname, req.method, response));
       }
       // 2) artwork lookups: the online relay keeps the TMDB key
       if (url.pathname.startsWith("/tmdb/")) {
@@ -176,7 +221,7 @@ export async function startServer({ webDir, relayFile, appCssFile, userDir, port
         }
         if (type.startsWith("text/html")) {
           let html = fs.readFileSync(file, "utf8");
-          const inject = `<script>document.documentElement.classList.add("us-app");window.US_APP=${JSON.stringify({ version: version || "" })};</script>` + (appCss ? `<style id="usAppCss">${appCss}</style>` : "") + '<script defer src="/__app/window-ui.js"></script>';
+          const inject = `<script>document.documentElement.classList.add("us-app");window.US_APP=${JSON.stringify({ version: version || "" })};</script>` + (appCss ? `<style id="usAppCss">${appCss}</style>` : "") + '<script defer src="/__app/window-ui.js"></script><script defer src="/__app/features.js"></script>';
           // the "this is the program" marker first (the page reads it as it starts), the styles last
           const mark = inject.match(/^<script>[\s\S]*?<\/script>/)[0];
           html = html.replace(/<head[^>]*>/i, (h) => h + mark).replace("</head>", inject.slice(mark.length) + "</head>");
