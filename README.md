@@ -17,6 +17,21 @@ What the program adds over the website:
   drawn inside the player window, with the program's own controls driving it.
 - **Open in VLC** still hands the channel to a separate VLC when wanted.
 
+## Player and browsing fixes (2.5.1)
+
+- Settings opens picture, buffer and engine controls; audio/subtitles have their own button.
+- Back/forward 10-second buttons and arrow keys accumulate rapid presses, including
+  while VLC or the Ultra engine is still seeking. Seeks stay inside the video's duration.
+- A visible, draggable gold scrollbar is available in the left category list.
+- Player/animation class changes no longer rescan the category wall. VLC status
+  reads cannot overlap, and paused playback keeps its last time without queued timeouts.
+
+The desktop bundle applies `patches/desktop-ui.patch` to the pinned shared web
+interface and embeds `app/seek-controller.js`. The web deployment is unchanged.
+`npm test` includes browser checks using installed Chrome (Windows/macOS) or
+`/usr/bin/chromium` (Linux; override with `US_CHROME_PATH`). Providers and VLC are
+test doubles; native VLC playback and paused status are also checked in Windows CI.
+
 ## Server file cleaner and checker (2.5.0)
 
 Open **Import Servers** in the sidebar or on Home, then choose a TXT, JSON, M3U
