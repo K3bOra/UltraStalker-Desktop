@@ -557,7 +557,11 @@ export function setupVlc({ win, bundle, shortLink, snapDir }) {
       await resumeIfPaused(rc);
       // pictures (S) and speed (2.6): reported, the release doesn't wait for them
       try {
-        for (const l of rateLines("2.00")) await rc.cmd(l);
+        // a fresh start of the test file, so it doesn't run out during the check
+        await play({ url, live: false, caching: 1000, volume: 0 });
+        for (let i = 0; i < 20 && (await rc.number("get_time")) < 1; i++) await new Promise((ok) => setTimeout(ok, 250));
+        const samples = [];
+        for (const l of rateLines("2.00")) samples.push(l + " → " + (await rc.cmd(l)).join(" ").slice(0, 80));
         // 3 seconds at double speed: about 6 seconds of picture (the test file restarts
         // every 8 seconds, so only forward steps count)
         let moved = 0, last = await rc.number("get_time");
@@ -565,10 +569,11 @@ export function setupVlc({ win, bundle, shortLink, snapDir }) {
           await new Promise((ok) => setTimeout(ok, 250));
           const t = await rc.number("get_time");
           if (t > last && t - last <= 2) moved += t - last;
+          samples.push(t);
           last = t;
         }
         for (const l of rateLines("1.00")) await rc.cmd(l);
-        result.rate = { ok: moved >= 4.5, advanced: moved, state: await rc.number("is_playing") };
+        result.rate = { ok: moved >= 4.5, advanced: moved, playing: await rc.number("is_playing"), samples };
       } catch (e) {
         result.rate = { ok: false, error: String((e && e.message) || e) };
       }
