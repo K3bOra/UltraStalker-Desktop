@@ -12,6 +12,20 @@ if (!src) {
   console.error("UltraStalker checkout not found. Set ULTRASTALKER_DIR to the UltraStalker repository folder.");
   process.exit(1);
 }
+// Older web checkouts build successfully but silently omit the import/check tool.
+// Validate before replacing a working bundle, including the engine used by the UI.
+const required = {
+  "web/index.html": /sources\.html#importPanel/,
+  "web/sources.html": /src=["']import\.js(?:\?[^"']*)?["']/,
+  "web/import.js": /engine\.checkImportedProfile/,
+  "web/engine.js": /\bcheckImportedProfile\s*,/,
+};
+for (const [file, marker] of Object.entries(required)) {
+  const target = path.join(src, file);
+  if (!fs.existsSync(target) || !marker.test(fs.readFileSync(target, "utf8"))) {
+    throw new Error(`Web checkout is missing server-file import/check support (${file}). Use UltraStalker commit 5dec24a6ff21091b162d3655ba92f8d73c7672af or newer.`);
+  }
+}
 const out = path.join(root, "bundle");
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(path.join(out, "relay"), { recursive: true });
@@ -21,3 +35,4 @@ let count = 0;
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : count++));
 walk(out);
 console.log("bundled", count, "files from", src);
+
