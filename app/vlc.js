@@ -11,6 +11,7 @@ import net from "node:net";
 import fs from "node:fs";
 import path from "node:path";
 import { Rc, parseInfo, parseTracks, parseStats } from "./vlc-rc.js";
+import { singleFlight } from "./single-flight.js";
 
 const WIN = process.platform === "win32";
 
@@ -87,6 +88,7 @@ export function setupVlc({ win, bundle, shortLink }) {
   let proc = null, rc = null, starting = null, vwin = null;
   const version = vlcVersion(exe);
   let rect = null, fit = "fit", info = {}, polls = 0, lastStats = null;
+  let position = { time: 0, length: 0 };
   let ops = Promise.resolve(), pendingVol = null;
   /* While VLC is paused its control answers only "pause" (everything else gets "Type
      'pause' to continue"), so un-pause before stopping, switching or seeking. */
@@ -310,6 +312,7 @@ export function setupVlc({ win, bundle, shortLink }) {
         info = {};
         fitKey = "";
         polls = 0;
+        position = { time: 0, length: 0 };
         lastStats = null;
         fit = o.fit === "fill" ? "fill" : "fit";
         pendingVol = null;
@@ -338,6 +341,7 @@ export function setupVlc({ win, bundle, shortLink }) {
     rect = null;
     place();
     info = {};
+    position = { time: 0, length: 0 };
     queue(async () => {
       if (rc && !rc.closed) {
         await resumeIfPaused(rc);
@@ -377,14 +381,21 @@ export function setupVlc({ win, bundle, shortLink }) {
     await rc.cmd(line);
     return true;
   });
-  const status = async () => {
+  const status = singleFlight(async () => {
     if (!rc || rc.closed) return { state: starting ? "opening" : "stopped", time: 0, length: 0, error: rc && rc.closed ? "VLC closed" : "" };
     const st = await rc.cmd("status");
     const txt = st.join("\n");
     let state = rc.state;
     if (/Type 'pause' to continue/.test(txt)) state = "paused";
+    // VLC's RC interface does not accept time/info commands while paused.
+    // Keep the last position instead of queuing several commands that time out.
+    if (state === "paused") {
+      rc.state = state;
+      return { state, ...position, info, stats: lastStats, version, error: "" };
+    }
     const time = await rc.number("get_time");
     const length = await rc.number("get_length");
+    position = { time, length };
     const playing = await rc.number("is_playing");
     if (!playing && state !== "paused") state = "stopped";
     else if (playing && state === "stopped") state = "playing";
@@ -400,7 +411,7 @@ export function setupVlc({ win, bundle, shortLink }) {
       lastStats = parseStats(await rc.cmd("stats"));
     }
     return { state, time, length, info, stats: lastStats, version, error: state === "stopped" ? vlcErrors() : "" };
-  };
+  });
   ipcMain.handle("vlc:status", () => status());
   ipcMain.on("app:logs", () => shell.showItemInFolder(path.join(LOG_DIR(), "ultra-stalker-log.txt")));
   ipcMain.handle("vlc:tracks", async () => {
@@ -463,6 +474,16 @@ export function setupVlc({ win, bundle, shortLink }) {
       result.captureError = String(e.message || e);
     }
     result.ok = !!(r && r.ok && last && last.time >= 1 && last.info && last.info.width && result.pictureLit > 20);
+    if (result.ok) {
+      await rc.cmd("pause");
+      rc.state = "paused";
+      const begin = Date.now();
+      const [paused] = await Promise.all([status(), status()]);
+      result.pausedPollMs = Date.now() - begin;
+      result.pausedPollOk = paused.state === "paused" && paused.time === last.time && result.pausedPollMs < 1500;
+      result.ok = result.pausedPollOk;
+      await resumeIfPaused(rc);
+    }
     try {
       result.log = fs.readFileSync(path.join(LOG_DIR(), "ultra-stalker-log.txt"), "utf8").slice(-4000);
       result.vlcLog = fs.readFileSync(vlcLog, "utf8").slice(-3000);
