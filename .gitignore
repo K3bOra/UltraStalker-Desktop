@@ -1,0 +1,9 @@
+.gradle/
+build/
+*/build/
+local.properties
+node_modules/
+app/src/main/assets/site/
+.idea/
+*.iml
+.kotlin/

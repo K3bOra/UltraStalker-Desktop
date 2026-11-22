@@ -1,0 +1,77 @@
+# Builds Ultra Stalker for Android TV (an APK) from this branch, with the interface of
+# the Windows program (UltraStalker-Desktop v2: the website's pages + the program's
+# player, adult filter and features), and tests the relay and the remote control.
+name: Android TV
+
+on:
+  push:
+    branches: [android-tv, 'tv/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get the Windows program's interface (v2)
+        uses: actions/checkout@v4
+        with:
+          ref: v2
+          path: desktop
+
+      - name: Which website version the program uses
+        id: pin
+        run: echo "ref=$(grep -oP 'ref:\s*\K[0-9a-f]{40}' desktop/.github/workflows/windows.yml | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Get the website (the same version)
+        uses: actions/checkout@v4
+        with:
+          repository: K3bOra/UltraStalker
+          ref: ${{ steps.pin.outputs.ref }}
+          path: desktop/ultrastalker-src
+          sparse-checkout: |
+            web
+            worker/src
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build the interface
+        run: |
+          cd desktop && npm ci --ignore-scripts && ULTRASTALKER_DIR=ultrastalker-src npm run bundle && cd ..
+          node scripts/make-site.mjs desktop
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Android SDK 36
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+
+      - name: Relay tests and the APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :relay:test :app:assembleRelease --console=plain
+          v=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          mkdir -p out && cp app/build/outputs/apk/release/app-release.apk "out/UltraStalker-TV-$v.apk"
+          (cd out && sha256sum *.apk | tee "UltraStalker-TV-$v.apk.sha256.txt")
+
+      - name: Remote-control tests (the TV's own server + Chrome)
+        run: |
+          ./gradlew :relay:serve -Pweb=$PWD/app/src/main/assets/site -Pport=47450 --console=plain > serve.log 2>&1 &
+          for i in $(seq 1 90); do grep -q SERVING serve.log && break; sleep 2; done
+          npm ci --ignore-scripts
+          US_CHROME_PATH=$(command -v google-chrome) npm test
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: UltraStalker-TV
+          path: out/*
+          retention-days: 30
