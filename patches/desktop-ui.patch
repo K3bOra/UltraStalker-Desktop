@@ -1,0 +1,176 @@
+diff --git a/web/desktop.js b/web/desktop.js
+index fb76f44..0053af5 100644
+--- a/web/desktop.js
++++ b/web/desktop.js
+@@ -1494,7 +1494,10 @@
+     drawWelcome();
+     sync();
+     let t = 0;
+-    new MutationObserver(() => {
++    new MutationObserver((records) => {
++      // Player controls and poster animations do not change the browse layout.
++      // Avoid rescanning hundreds of categories for their class updates.
++      if (!records.some(({target}) => target === document.body || target.matches('.type') || /^(category|items|seasons|episodes|movie|favorites|search)Stage$/.test(target.id))) return;
+       clearTimeout(t);
+       t = setTimeout(sync, 30);
+     }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class"], childList: false });
+diff --git a/web/player.js b/web/player.js
+index ccf82c8..ed97e72 100644
+--- a/web/player.js
++++ b/web/player.js
+@@ -82,6 +82,8 @@
+ .usp-ic.pp{width:46px;height:46px;border-radius:50%;background:var(--foil);color:#1a1306;box-shadow:0 8px 24px -8px rgba(226,192,124,.8)}
+ .usp-ic.pp svg{fill:currentColor;stroke:none}
+ .usp-ic[hidden]{display:none}
++.usp-ic.skip-back svg,.usp-ic.skip-forward svg{width:27px;height:27px;stroke-width:1.7}
++.usp-ic:disabled{opacity:.35;cursor:default;transform:none}
+ .usp-live{display:inline-flex;align-items:center;gap:6px;margin:0 6px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.1em;color:#ffd9d9;background:rgba(255,70,70,.14);border:1px solid rgba(255,90,90,.35)}
+ .usp-live:before{content:"";width:7px;height:7px;border-radius:50%;background:#ff4d4d;box-shadow:0 0 10px #ff4d4d;animation:uspBlink 1.6s ease-in-out infinite}
+ @keyframes uspBlink{50%{opacity:.35}}
+@@ -144,6 +146,8 @@ body.usp-direct #playerSheet{display:none!important}
+   document.head.appendChild(style);
+ 
+   const I = {
++    back10: '<svg viewBox="0 0 28 28" aria-hidden="true"><path d="M6.4 8.4A9.5 9.5 0 1 1 4.5 17M6.4 3.5v5.4H1"/><text x="14" y="18" text-anchor="middle" fill="currentColor" stroke="none" font-family="system-ui,sans-serif" font-size="10" font-weight="700">10</text></svg>',
++    forward10: '<svg viewBox="0 0 28 28" aria-hidden="true"><path d="M21.6 8.4A9.5 9.5 0 1 0 23.5 17M21.6 3.5v5.4H27"/><text x="14" y="18" text-anchor="middle" fill="currentColor" stroke="none" font-family="system-ui,sans-serif" font-size="10" font-weight="700">10</text></svg>',
+     play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>',
+     pause: '<svg viewBox="0 0 24 24"><rect x="6.5" y="5" width="4" height="14" rx="1.2"/><rect x="13.5" y="5" width="4" height="14" rx="1.2"/></svg>',
+     prev: '<svg viewBox="0 0 24 24"><path d="M18 6 9 12l9 6z"/><path d="M6 6v12"/></svg>',
+@@ -307,6 +311,10 @@ body.usp-direct #playerSheet{display:none!important}
+   const isEngine = () => step() === "engine" || step() === "soft";
+   const isVlc = () => step() === "vlc";
+ 
++  /* US_DESKTOP_SEEK_CONTROLLER */
++  const seeks = createSeekController({ read: () => A.rawTime(), duration: () => A.duration(),
++    apply: (seconds) => A.seekBackend(seconds), changed: () => refresh() });
++
+   /* ------------------------------------------------------------------ one API over both engines */
+   const A = {
+     paused() {
+@@ -334,7 +342,8 @@ body.usp-direct #playerSheet{display:none!important}
+         else await eng.pause().catch(() => {});
+       } else if (video) video.paused ? video.play().catch(() => {}) : video.pause();
+     },
+-    time() {
++    time() { return seeks.time(); },
++    rawTime() {
+       if (isVlc()) return vs ? vs.time || 0 : 0;
+       if (isEngine()) {
+         try {
+@@ -359,11 +368,17 @@ body.usp-direct #playerSheet{display:none!important}
+     },
+     seek(sec) {
+       if (current && current.live) return;
++      return seeks.to(sec);
++    },
++    seekBy(delta) {
++      if (current && current.live) return;
++      return seeks.by(delta);
++    },
++    seekBackend(sec) {
+       if (isVlc()) {
+-        if (vs) vs.time = Math.max(0, sec);
+         return NV.cmd("seek", String(Math.max(0, Math.floor(sec))));
+       }
+-      if (isEngine()) eng && eng.seek(BigInt(Math.max(0, Math.floor(sec * 1000)))).catch(() => {});
++      if (isEngine()) return eng && eng.seek(BigInt(Math.max(0, Math.floor(sec * 1000))));
+       else if (video) video.currentTime = Math.max(0, sec);
+     },
+     vol() {
+@@ -526,7 +541,9 @@ body.usp-direct #playerSheet{display:none!important}
+       '<div class="usp-bar"><div class="usp-seek"><span class="c">0:00</span><input type="range" min="0" max="1000" value="0" aria-label="Seek"><span class="d">0:00</span></div>' +
+       '<div class="usp-row">' +
+       `<button type="button" class="usp-ic prev" aria-label="Previous channel" title="Previous channel (↑)">${I.prev}</button>` +
++      `<button type="button" class="usp-ic skip-back" aria-label="Back 10 seconds" title="Back 10 seconds · تأخير 10 ثواني">${I.back10}</button>` +
+       `<button type="button" class="usp-ic pp" aria-label="Play / pause" title="Pause (Space)">${I.pause}</button>` +
++      `<button type="button" class="usp-ic skip-forward" aria-label="Forward 10 seconds" title="Forward 10 seconds · تقديم 10 ثواني">${I.forward10}</button>` +
+       `<button type="button" class="usp-ic stop" aria-label="Stop" title="Stop">${I.stop}</button>` +
+       `<button type="button" class="usp-ic next" aria-label="Next channel" title="Next channel (↓)">${I.next}</button>` +
+       '<span class="usp-live">LIVE</span><span class="usp-time"></span>' +
+@@ -558,6 +575,8 @@ body.usp-direct #playerSheet{display:none!important}
+     const q = (s) => bar.querySelector(s);
+     q(".pp").onclick = () => Promise.resolve(A.toggle()).then(refresh);
+     q(".stop").onclick = halt;
++    q(".skip-back").onclick = () => A.seekBy(-10);
++    q(".skip-forward").onclick = () => A.seekBy(10);
+     q(".prev").onclick = () => opts.onPrev && opts.onPrev();
+     q(".next").onclick = () => opts.onNext && opts.onNext();
+     q(".mute").onclick = () => {
+@@ -626,7 +645,7 @@ body.usp-direct #playerSheet{display:none!important}
+       } else if (k === " " || k === "k") Promise.resolve(A.toggle()).then(refresh);
+       else if (k === "m" || k === "M") A.toggleMute();
+       else if (k === "f" || k === "F") fullscreen();
+-      else if (!live && (k === "ArrowRight" || k === "ArrowLeft")) A.seek(A.time() + (k === "ArrowRight" ? 10 : -10));
++      else if (!live && (k === "ArrowRight" || k === "ArrowLeft")) A.seekBy(k === "ArrowRight" ? 10 : -10);
+       else if (live && (k === "ArrowUp" || k === "PageUp" || k === "ChannelUp") && opts.onPrev) opts.onPrev();
+       else if (live && (k === "ArrowDown" || k === "PageDown" || k === "ChannelDown") && opts.onNext) opts.onNext();
+       else if (!live && (k === "ArrowUp" || k === "ArrowDown")) A.setVol(A.vol() + (k === "ArrowUp" ? 0.1 : -0.1));
+@@ -672,6 +691,8 @@ body.usp-direct #playerSheet{display:none!important}
+     q(".prev").hidden = q(".next").hidden = !(live && opts.onPrev);
+     q(".usp-live").style.display = live ? "" : "none";
+     const d = A.duration(), t = A.time();
++    q(".skip-back").hidden = q(".skip-forward").hidden = live;
++    q(".skip-back").disabled = q(".skip-forward").disabled = !(d > 0) || !!current?._halted;
+     q(".usp-seek").style.display = !live && d > 0 ? "" : "none";
+     q(".usp-time").textContent = !live && !d && t ? fmtClock(t) : "";
+     if (!live && d > 0) {
+@@ -734,13 +755,11 @@ body.usp-direct #playerSheet{display:none!important}
+       menu.dataset.kind = "tracks";
+       menu.onclick = menuClick;
+       menu.classList.add("on");
++      menu.scrollTop = 0;
+       return;
+     }
+     const fits = isEngine() || isVlc() ? [["fit", "Fit"], ["fill", "Fill"]] : [["fit", "Fit"], ["fill", "Fill"], ["stretch", "Stretch"]];
+-    let h = qualityMenu();
+-    if (current && !current.live && !canListTracks()) h += tracksHtml(at, st);
+-    else if (at.length > 1) h += "<h4>Audio</h4>" + at.map((t) => `<button type="button" data-a="${t.id}" class="${t.on ? "on" : ""}">${esc(t.label)}</button>`).join("");
+-    if (st.length) h += "<h4>Subtitles</h4>" + `<button type="button" data-s="-1" class="${st.some((t) => t.on) ? "" : "on"}">Off</button>` + st.map((t) => `<button type="button" data-s="${t.id}" class="${t.on ? "on" : ""}">${esc(t.label)}</button>`).join("");
++    let h = '<div class="usp-mh">Settings</div>' + qualityMenu();
+     h += '<h4>Picture</h4><div class="usp-seg">' + fits.map(([k, l]) => `<button type="button" data-f="${k}" class="${fit === k ? "on" : ""}">${l}</button>`).join("") + "</div>";
+     if (current && current.live) {
+       const bf = store.get("us-buffer", "normal");
+@@ -763,6 +782,7 @@ body.usp-direct #playerSheet{display:none!important}
+     menu.dataset.kind = "";
+     menu.onclick = menuClick;
+     menu.classList.add("on");
++    menu.scrollTop = 0;
+   }
+   function menuClick(e) {
+       e.stopPropagation();
+@@ -1163,6 +1183,7 @@ body.usp-direct #playerSheet{display:none!important}
+     if (eng && stage.clientWidth && stage.clientHeight) eng.resize(stage.clientWidth, stage.clientHeight);
+   }
+   function stop() {
++    seeks.reset();
+     alive++;
+     clearTimeout(startTimer);
+     clearInterval(gate);
+@@ -1317,13 +1338,18 @@ body.usp-direct #playerSheet{display:none!important}
+     ticket._vlcRetry = ticket._vlcRetry || 0;
+     if (r.version) vs.version = r.version;
+     const t0 = Date.now();
++    let polling = false;
+     clearInterval(vlcPoll);
+     vlcPoll = setInterval(async () => {
++      if (polling) return;
++      polling = true;
+       let s;
+       try {
+         s = await NV.status();
+       } catch (_) {
+         return;
++      } finally {
++        polling = false;
+       }
+       if (my !== alive || !vlcOn || !s) return;
+       const keep = { atracks: vs.atracks, stracks: vs.stracks, version: vs.version };
+@@ -1343,7 +1369,7 @@ body.usp-direct #playerSheet{display:none!important}
+         if (!escalate(why)) fail(why);
+       }
+       if (over && started && !ticket.live) refresh();
+-    }, 600);
++    }, 1000);
+     placeVlc();
+   }
+   async function vlcTracks() {

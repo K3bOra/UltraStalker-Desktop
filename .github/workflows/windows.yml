@@ -4,7 +4,7 @@ name: Windows installer
 
 on:
   push:
-    branches: [v2]
+    branches: [v2, 'fix/player-controls-*']
   workflow_dispatch:
 
 permissions:

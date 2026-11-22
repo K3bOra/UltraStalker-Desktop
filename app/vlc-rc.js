@@ -50,7 +50,7 @@ export class Rc {
         const name = text.split(" ")[0];
         const c = {
           lines: [],
-          end: (l) => (single ? true : block ? block.test(l) : new RegExp("^" + name + ": returned -?\\d+").test(l)) || /^Unknown command/.test(l),
+          end: (l) => (single ? true : block ? block.test(l) : new RegExp("^" + name + ": returned -?\\d+").test(l)) || /^Unknown command|^Type 'pause' to continue/.test(l),
           done: () => {
             if (this.cur !== c) return;
             clearTimeout(t);

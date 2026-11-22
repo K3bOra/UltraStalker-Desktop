@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const candidates = [process.env.ULTRASTALKER_DIR, path.join(root, "..", "UltraStalker"), path.join(root, "..", "ultrastalker"), path.join(root, "ultrastalker-src")].filter(Boolean);
@@ -31,6 +32,20 @@ fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(path.join(out, "relay"), { recursive: true });
 fs.cpSync(path.join(src, "web"), path.join(out, "web"), { recursive: true });
 fs.copyFileSync(path.join(src, "worker", "src", "index.js"), path.join(out, "relay", "index.mjs"));
+// Keep desktop fixes with this repository instead of changing the deployed website.
+// A changed upstream must pass the patch check rather than silently losing a fix.
+// Windows checkouts can contain CRLF; apply the same patch on every platform.
+for (const file of ["player.js", "desktop.js"]) {
+  const target = path.join(out, "web", file);
+  fs.writeFileSync(target, fs.readFileSync(target, "utf8").replace(/\r\n/g, "\n"));
+}
+execFileSync("git", ["apply", "--directory=bundle"], { cwd: root,
+  input: fs.readFileSync(path.join(root, "patches", "desktop-ui.patch"), "utf8").replace(/\r\n/g, "\n") });
+const playerFile = path.join(out, "web", "player.js");
+const controller = fs.readFileSync(path.join(root, "app", "seek-controller.js"), "utf8").replace(/^export /m, "");
+const player = fs.readFileSync(playerFile, "utf8");
+if (!player.includes("/* US_DESKTOP_SEEK_CONTROLLER */")) throw new Error("Desktop seek controller marker missing");
+fs.writeFileSync(playerFile, player.replace("/* US_DESKTOP_SEEK_CONTROLLER */", controller));
 let count = 0;
 const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).forEach((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : count++));
 walk(out);
