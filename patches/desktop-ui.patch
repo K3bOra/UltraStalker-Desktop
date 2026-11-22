@@ -15,7 +15,7 @@ index fb76f44..0053af5 100644
        t = setTimeout(sync, 30);
      }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class"], childList: false });
 diff --git a/web/player.js b/web/player.js
-index ccf82c8..36dd2e1 100644
+index ccf82c8..ed97e72 100644
 --- a/web/player.js
 +++ b/web/player.js
 @@ -82,6 +82,8 @@
@@ -57,7 +57,7 @@ index ccf82c8..36dd2e1 100644
        if (isVlc()) return vs ? vs.time || 0 : 0;
        if (isEngine()) {
          try {
-@@ -359,11 +368,18 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -359,11 +368,17 @@ body.usp-direct #playerSheet{display:none!important}
      },
      seek(sec) {
        if (current && current.live) return;
@@ -69,7 +69,7 @@ index ccf82c8..36dd2e1 100644
 +    },
 +    seekBackend(sec) {
        if (isVlc()) {
-         if (vs) vs.time = Math.max(0, sec);
+-        if (vs) vs.time = Math.max(0, sec);
          return NV.cmd("seek", String(Math.max(0, Math.floor(sec))));
        }
 -      if (isEngine()) eng && eng.seek(BigInt(Math.max(0, Math.floor(sec * 1000)))).catch(() => {});
@@ -77,7 +77,7 @@ index ccf82c8..36dd2e1 100644
        else if (video) video.currentTime = Math.max(0, sec);
      },
      vol() {
-@@ -526,7 +542,9 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -526,7 +541,9 @@ body.usp-direct #playerSheet{display:none!important}
        '<div class="usp-bar"><div class="usp-seek"><span class="c">0:00</span><input type="range" min="0" max="1000" value="0" aria-label="Seek"><span class="d">0:00</span></div>' +
        '<div class="usp-row">' +
        `<button type="button" class="usp-ic prev" aria-label="Previous channel" title="Previous channel (↑)">${I.prev}</button>` +
@@ -87,7 +87,7 @@ index ccf82c8..36dd2e1 100644
        `<button type="button" class="usp-ic stop" aria-label="Stop" title="Stop">${I.stop}</button>` +
        `<button type="button" class="usp-ic next" aria-label="Next channel" title="Next channel (↓)">${I.next}</button>` +
        '<span class="usp-live">LIVE</span><span class="usp-time"></span>' +
-@@ -558,6 +576,8 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -558,6 +575,8 @@ body.usp-direct #playerSheet{display:none!important}
      const q = (s) => bar.querySelector(s);
      q(".pp").onclick = () => Promise.resolve(A.toggle()).then(refresh);
      q(".stop").onclick = halt;
@@ -96,7 +96,7 @@ index ccf82c8..36dd2e1 100644
      q(".prev").onclick = () => opts.onPrev && opts.onPrev();
      q(".next").onclick = () => opts.onNext && opts.onNext();
      q(".mute").onclick = () => {
-@@ -626,7 +646,7 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -626,7 +645,7 @@ body.usp-direct #playerSheet{display:none!important}
        } else if (k === " " || k === "k") Promise.resolve(A.toggle()).then(refresh);
        else if (k === "m" || k === "M") A.toggleMute();
        else if (k === "f" || k === "F") fullscreen();
@@ -105,7 +105,7 @@ index ccf82c8..36dd2e1 100644
        else if (live && (k === "ArrowUp" || k === "PageUp" || k === "ChannelUp") && opts.onPrev) opts.onPrev();
        else if (live && (k === "ArrowDown" || k === "PageDown" || k === "ChannelDown") && opts.onNext) opts.onNext();
        else if (!live && (k === "ArrowUp" || k === "ArrowDown")) A.setVol(A.vol() + (k === "ArrowUp" ? 0.1 : -0.1));
-@@ -672,6 +692,8 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -672,6 +691,8 @@ body.usp-direct #playerSheet{display:none!important}
      q(".prev").hidden = q(".next").hidden = !(live && opts.onPrev);
      q(".usp-live").style.display = live ? "" : "none";
      const d = A.duration(), t = A.time();
@@ -114,7 +114,7 @@ index ccf82c8..36dd2e1 100644
      q(".usp-seek").style.display = !live && d > 0 ? "" : "none";
      q(".usp-time").textContent = !live && !d && t ? fmtClock(t) : "";
      if (!live && d > 0) {
-@@ -734,13 +756,11 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -734,13 +755,11 @@ body.usp-direct #playerSheet{display:none!important}
        menu.dataset.kind = "tracks";
        menu.onclick = menuClick;
        menu.classList.add("on");
@@ -130,7 +130,7 @@ index ccf82c8..36dd2e1 100644
      h += '<h4>Picture</h4><div class="usp-seg">' + fits.map(([k, l]) => `<button type="button" data-f="${k}" class="${fit === k ? "on" : ""}">${l}</button>`).join("") + "</div>";
      if (current && current.live) {
        const bf = store.get("us-buffer", "normal");
-@@ -763,6 +783,7 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -763,6 +782,7 @@ body.usp-direct #playerSheet{display:none!important}
      menu.dataset.kind = "";
      menu.onclick = menuClick;
      menu.classList.add("on");
@@ -138,7 +138,7 @@ index ccf82c8..36dd2e1 100644
    }
    function menuClick(e) {
        e.stopPropagation();
-@@ -1163,6 +1184,7 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -1163,6 +1183,7 @@ body.usp-direct #playerSheet{display:none!important}
      if (eng && stage.clientWidth && stage.clientHeight) eng.resize(stage.clientWidth, stage.clientHeight);
    }
    function stop() {
@@ -146,7 +146,7 @@ index ccf82c8..36dd2e1 100644
      alive++;
      clearTimeout(startTimer);
      clearInterval(gate);
-@@ -1317,13 +1339,18 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -1317,13 +1338,18 @@ body.usp-direct #playerSheet{display:none!important}
      ticket._vlcRetry = ticket._vlcRetry || 0;
      if (r.version) vs.version = r.version;
      const t0 = Date.now();
@@ -165,7 +165,7 @@ index ccf82c8..36dd2e1 100644
        }
        if (my !== alive || !vlcOn || !s) return;
        const keep = { atracks: vs.atracks, stracks: vs.stracks, version: vs.version };
-@@ -1343,7 +1370,7 @@ body.usp-direct #playerSheet{display:none!important}
+@@ -1343,7 +1369,7 @@ body.usp-direct #playerSheet{display:none!important}
          if (!escalate(why)) fail(why);
        }
        if (over && started && !ticket.live) refresh();
