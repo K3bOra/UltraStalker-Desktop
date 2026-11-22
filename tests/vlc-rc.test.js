@@ -48,3 +48,16 @@ test("command replies over the socket", async () => {
   sock.destroy();
   srv.close();
 });
+
+test("a paused VLC prompt completes the request without waiting for a timeout", async () => {
+  const { EventEmitter } = await import("node:events");
+  const sock = new EventEmitter();
+  sock.setEncoding = sock.setNoDelay = () => {};
+  sock.write = () => queueMicrotask(() => sock.emit("data", "Type 'pause' to continue.\r\n"));
+  const rc = new Rc(sock);
+  const reply = await Promise.race([
+    rc.cmd("status"),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("paused prompt stalled")), 200)),
+  ]);
+  assert.deepEqual(reply, ["Type 'pause' to continue."]);
+});
