@@ -17,6 +17,7 @@ dependencies {
     api("com.squareup.okhttp3:okhttp:4.12.0")
     api("org.nanohttpd:nanohttpd:2.3.1")
     api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    api("com.google.zxing:core:3.5.3")
     testImplementation(kotlin("test"))
     testImplementation("junit:junit:4.13.2")
 }

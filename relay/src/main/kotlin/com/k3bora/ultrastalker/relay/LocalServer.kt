@@ -115,7 +115,9 @@ class LocalServer(
             return send(Reply.text(200, inject(html), type, ISOLATE + ("Cache-Control" to "no-cache")))
         }
         val bytes = input.use { it.readBytes() }
-        return send(Reply(200, ISOLATE + mapOf("Content-Type" to type, "Cache-Control" to "no-cache"), if (method == "HEAD") null else bytes.inputStream(), bytes.size.toLong()))
+        // files ship inside the app: kept by the page between starts (the app clears the
+        // page's cache when a new version is installed)
+        return send(Reply(200, ISOLATE + mapOf("Content-Type" to type, "Cache-Control" to "max-age=31536000"), if (method == "HEAD") null else bytes.inputStream(), bytes.size.toLong()))
     }
 
     /* Every page: "this is the TV app" first (the page reads it as it starts) and the

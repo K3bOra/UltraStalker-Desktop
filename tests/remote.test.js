@@ -34,6 +34,15 @@ async function open(t) {
       version: () => "1.0.0",
       exitApp: () => {},
     };
+    // the app's file helper: a phone on the Wi-Fi, the TV's Download folder
+    window.USTVFiles = {
+      phoneOpen: () => JSON.stringify({ ip: "192.168.1.20", port: "47391", code: "123456", url: "http://192.168.1.20:47391/?c=123456", qr: "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'><rect width='1' height='1'/></svg>" }),
+      phoneClose: () => (T.phoneClosed = true),
+      phoneTake: () => { const f = T.inbox; T.inbox = null; return f ? JSON.stringify(f) : ""; },
+      offerFile: (name, b64) => (T.offered = { name, size: atob(b64).length }, JSON.stringify({ ok: true, saved: "Download/Ultra Stalker/" + name, phone: JSON.parse(window.USTVFiles.phoneOpen()) })),
+      canPick: () => false,
+      pick: () => {},
+    };
   });
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
@@ -135,5 +144,40 @@ test("the remote in a film: seek, controls, settings, back", { timeout: 60000 },
   await page.waitForFunction(() => document.querySelector(".usp").classList.contains("hidden"));
   // nothing else open: the app goes back a page or leaves
   assert.equal(await back(page), false);
+  assert.deepEqual(errors, []);
+});
+
+test("backups on the TV: the file comes from a phone, the backup goes to Downloads and the phone", { timeout: 60000 }, async (t) => {
+  const { page, errors } = await open(t);
+  const asked = [];
+  page.on("dialog", (d) => (asked.push(d.message()), d.accept()));
+  await page.goto(ORIGIN + "/sources.html#backupPanel");
+  await page.waitForSelector("label[for=backupFile]");
+  // the remote reaches "Choose backup file" and OK opens the file window
+  await page.evaluate(() => { const l = document.querySelector("label[for=backupFile]"); l.tabIndex = -1; l.focus(); });
+  await page.keyboard.press("Enter");
+  await page.waitForSelector(".us-tv-dlg .qr img");
+  assert.match(await page.locator(".us-tv-dlg").textContent(), /192\.168\.1\.20:47391.*123456/);
+  assert.ok(await page.evaluate(() => !!document.activeElement.closest(".us-tv-dlg")));
+  // the phone sends a backup: the page reads it like a chosen file
+  const zip = "UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA=="; // an empty zip
+  await page.evaluate((b64) => { window.__t.inbox = { name: "UltraStalker-backup.zip", b64 }; }, zip);
+  await page.waitForFunction(() => !document.querySelector(".us-tv-dlg"));
+  await page.waitForFunction(() => /UltraStalker-backup\.zip/.test(document.body.textContent));
+  assert.equal(await page.evaluate(() => window.__t.phoneClosed), true);
+  // Back closes the window without a file
+  await page.evaluate(() => { const l = document.querySelector("label[for=backupFile]"); l.tabIndex = -1; l.focus(); });
+  await page.keyboard.press("Enter");
+  await page.waitForSelector(".us-tv-dlg");
+  assert.equal(await back(page), true);
+  assert.equal(await page.locator(".us-tv-dlg").count(), 0);
+  // saving a backup: Download folder + phone
+  await page.evaluate(() => document.getElementById("backupSaveBtn").click());
+  await page.waitForSelector(".us-tv-dlg");
+  assert.match(await page.locator(".us-tv-dlg").textContent(), /Saved on the TV.*Download\/Ultra Stalker\//);
+  assert.match(await page.evaluate(() => window.__t.offered.name), /\.zip$/);
+  assert.ok((await page.evaluate(() => window.__t.offered.size)) > 100);
+  await page.keyboard.press("Enter");
+  assert.equal(await page.locator(".us-tv-dlg").count(), 0);
   assert.deepEqual(errors, []);
 });

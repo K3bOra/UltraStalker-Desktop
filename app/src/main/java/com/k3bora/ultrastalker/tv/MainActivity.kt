@@ -49,6 +49,7 @@ class MainActivity : Activity() {
     private lateinit var server: LocalServer
     private lateinit var web: WebView
     private lateinit var vlc: VlcBridge
+    private lateinit var files: Files
     private var backAt = 0L
 
     companion object {
@@ -92,13 +93,28 @@ class MainActivity : Activity() {
             builtInZoomControls = false
             displayZoomControls = false
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            cacheMode = WebSettings.LOAD_NO_CACHE
+            // the interface's files are kept between starts (fast); a new version clears them
+            cacheMode = WebSettings.LOAD_DEFAULT
             userAgentString = userAgentString + " UltraStalkerTV/" + BuildConfigInfo.version(this@MainActivity)
         }
         web.isFocusable = true
         web.isFocusableInTouchMode = true
+        val prefs = getSharedPreferences("app", MODE_PRIVATE)
+        val v = BuildConfigInfo.version(this)
+        if (prefs.getString("cachedVersion", "") != v) {
+            web.clearCache(true)
+            prefs.edit().putString("cachedVersion", v).apply()
+        }
         web.addJavascriptInterface(vlc.Js(), "USTV")
+        files = Files(this, web)
+        web.addJavascriptInterface(files, "USTVFiles")
         web.webChromeClient = object : WebChromeClient() {
+            // a file input: the page's own file window (phone or the TV's files)
+            override fun onShowFileChooser(view: WebView, callback: android.webkit.ValueCallback<Array<android.net.Uri>>?, params: FileChooserParams?): Boolean {
+                callback?.onReceiveValue(null)
+                view.evaluateJavascript("window.usTvChooseFile&&usTvChooseFile()", null)
+                return true
+            }
             override fun onConsoleMessage(m: ConsoleMessage): Boolean {
                 Log.d("UltraStalker", "page: ${m.message()} (${m.sourceId()}:${m.lineNumber()})")
                 return true
@@ -193,7 +209,15 @@ class MainActivity : Activity() {
         hideBars()
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == Files.PICK && resultCode == RESULT_OK) files.picked(data?.data)
+    }
+
     override fun onDestroy() {
+        files.link.close()
         vlc.release()
         web.destroy()
         server.stop()

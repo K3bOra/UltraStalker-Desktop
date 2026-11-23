@@ -11,7 +11,7 @@
   const ARROW = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
   const ITEMS =
     'a[href],button,input:not([type=hidden]):not([type=range]),select,textarea,summary,[tabindex]:not([tabindex="-1"]),[role=button],[role=option],' +
-    ".live-card,.poster-card,.item-card,.category,.inline-episode,.dk-src,.dk-sp-row";
+    ".live-card,.poster-card,.item-card,.category,.inline-episode,.dk-src,.dk-sp-row,label[for],label:has(> input[type=file])";
   const NATIVE = /^(A|BUTTON|INPUT|SELECT|TEXTAREA|SUMMARY)$/;
   let last = null;
 
@@ -46,15 +46,28 @@
     }
     return document.body;
   }
+  /* Speed matters on a TV box: the list is filtered by size only (cheap, one layout);
+     the full visibility check runs for the item that wins, not for hundreds. */
+  const HIDDEN = ".usp-seek,.usp.hidden,.dk-cats:not(.on),.dk-srcpanel:not(.on),[hidden],.hidden,[aria-hidden=true],[inert]";
   function items(root) {
-    return [...root.querySelectorAll(ITEMS)].filter((el) => !el.closest(".usp-seek") && shown(el) && (root !== document.body || !el.closest(".usp.hidden,.dk-cats:not(.on),.dk-srcpanel:not(.on)")));
+    const out = [];
+    for (const el of root.querySelectorAll(ITEMS)) {
+      if (el.disabled || el.hidden) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) continue;
+      if (el.closest(HIDDEN)) continue;
+      el.__r = r;
+      out.push(el);
+    }
+    return out;
   }
+  const rectOf = (el) => el.__r || el.getBoundingClientRect();
   function focus(el) {
     if (!el) return false;
     if (!NATIVE.test(el.tagName) && !el.hasAttribute("tabindex")) el.setAttribute("tabindex", "-1");
     el.focus({ preventScroll: true });
     try {
-      el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+      el.scrollIntoView({ block: "nearest", inline: "nearest" });
     } catch (_) {
       el.scrollIntoView(false);
     }
@@ -63,11 +76,20 @@
   }
   /* the nearest item in a direction: the gap along it, plus how far off to the side */
   function nearest(from, list, dir) {
+    const skip = new Set();
+    for (let tries = 0; tries < 6; tries++) {
+      const el = closest(from, list, dir, skip);
+      if (!el || shown(el)) return el;
+      skip.add(el);
+    }
+    return null;
+  }
+  function closest(from, list, dir, skip) {
     const a = from.getBoundingClientRect();
     let best = null, score = Infinity;
     for (const el of list) {
-      if (el === from || el.contains(from) || from.contains(el)) continue;
-      const b = el.getBoundingClientRect();
+      if (el === from || skip.has(el) || el.contains(from) || from.contains(el)) continue;
+      const b = rectOf(el);
       const slack = 0.3;
       let gap, side, ok;
       if (dir === "right" || dir === "left") {
@@ -98,13 +120,14 @@
     const playing = list.find((el) => el.matches(".live-card.dk-on"));
     if (playing) return playing;
     const onScreen = list.filter((el) => {
-      const r = el.getBoundingClientRect();
+      const r = rectOf(el);
       return r.bottom > 60 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
     });
     const main = onScreen.filter((el) => !el.closest("#dkBar"));
     return (main.length ? main : onScreen)[0] || list[0];
   }
   function move(dir) {
+    if (dialog) return moveIn(dialog.querySelector(".card"), dir);
     const root = scope();
     const list = items(root);
     if (!list.length) return false;
@@ -167,6 +190,141 @@
     return false;
   }
 
+  /* ------------------------------------------------------------ files (backups) */
+  /* A TV has no file picker: the phone sends the file over the home Wi-Fi (QR code),
+     or the TV's own file manager when it has one. Saving: the TV's Download folder,
+     and the phone can get it from the same window. */
+  const F = window.USTVFiles;
+  let dialog = null, poll = 0;
+  function moveIn(root, dir) {
+    const list = items(root);
+    const cur = document.activeElement;
+    if (!list.includes(cur)) return focus(list[0]);
+    return focus(nearest(cur, list, dir) || cur);
+  }
+  function closeDialog() {
+    clearInterval(poll);
+    poll = 0;
+    if (dialog) dialog.remove();
+    dialog = null;
+    window.usTvPicked = null;
+    if (F) F.phoneClose();
+    if (last && document.contains(last)) focus(last);
+  }
+  function showDialog(html, buttons) {
+    if (dialog) dialog.remove();
+    const back = last;
+    dialog = document.createElement("div");
+    dialog.className = "us-tv-dlg";
+    dialog.innerHTML = '<div class="card" role="dialog">' + html + '<div class="acts"></div></div>';
+    const acts = dialog.querySelector(".acts");
+    for (const [label, fn, gold] of buttons) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = label;
+      if (gold) b.className = "gold";
+      b.onclick = fn;
+      acts.appendChild(b);
+    }
+    document.body.appendChild(dialog);
+    focus(acts.querySelector("button"));
+    last = back;
+  }
+  const esc = (t) => String(t || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  function phoneHtml(info, line) {
+    if (!info.url) return `<p>Connect the TV to the home network (Wi-Fi or cable) to use a phone.<span class="ar">وصّل التلفزيون بشبكة البيت (واي فاي أو كابل) عشان تستخدم الموبايل.</span></p>`;
+    return `<div class="qr"><img alt="" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(info.qr)}"></div><div>${line}` +
+      `<p>Or open <code>${esc(info.ip)}:${esc(info.port)}</code> on a phone on the same Wi-Fi, code <code>${esc(info.code)}</code>.<span class="ar">أو افتح العنوان ده من موبايل على نفس الواي فاي، والكود ${esc(info.code)}.</span></p></div>`;
+  }
+  function chooseFile(input) {
+    if (!F) return;
+    let info = {};
+    try {
+      info = JSON.parse(F.phoneOpen());
+    } catch (_) {}
+    const deliver = (j) => {
+      if (!j || !j.b64) return;
+      const bin = atob(j.b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const type = /\.zip$/i.test(j.name) ? "application/zip" : /\.json$/i.test(j.name) ? "application/json" : "text/plain";
+      const file = new File([bytes], j.name || "file", { type });
+      closeDialog();
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    window.usTvPicked = (s) => {
+      try {
+        deliver(JSON.parse(s));
+      } catch (_) {}
+    };
+    const buttons = [];
+    if (F.canPick()) buttons.push(["Browse this TV · ملفات التلفزيون", () => F.pick(input.accept || "*/*"), !info.url]);
+    buttons.push(["Cancel · إلغاء", closeDialog]);
+    showDialog(
+      "<h3>Choose the file · اختار الملف</h3>" +
+        phoneHtml(info, `<p>Scan with your phone's camera, choose the file and press <b>Send</b>.<span class="ar">صوّر الكود بكاميرا الموبايل، اختار الملف ودوس ابعت.</span></p>`) +
+        (info.url ? '<p class="wait">Waiting for the file… · مستني الملف…</p>' : ""),
+      buttons,
+    );
+    if (!info.url) dialog.classList.add("noqr");
+    clearInterval(poll);
+    poll = setInterval(() => {
+      try {
+        const s = F.phoneTake();
+        if (s) deliver(JSON.parse(s));
+      } catch (_) {}
+    }, 1000);
+  }
+  window.usTvChooseFile = () => {
+    const input = [...document.querySelectorAll("input[type=file]")].find((i) => i.closest("label") === document.activeElement || document.activeElement === i || (i.id && document.activeElement && document.activeElement.htmlFor === i.id)) || document.querySelector("input[type=file]");
+    if (input) chooseFile(input);
+  };
+  // a file input opens the file window instead of the (missing) picker
+  window.addEventListener(
+    "click",
+    (e) => {
+      const input = e.target && e.target.closest && e.target.closest("input[type=file]");
+      if (!input || !F) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      chooseFile(input);
+    },
+    true,
+  );
+  async function save(href, name) {
+    try {
+      const buf = new Uint8Array(await (await fetch(href)).arrayBuffer());
+      let bin = "";
+      for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+      const r = JSON.parse(F.offerFile(name || "UltraStalker-file", btoa(bin)));
+      const info = r.phone || {};
+      showDialog(
+        `<h3>${r.saved ? "Saved on the TV · اتحفظ على التلفزيون" : "Get the file on your phone · خده على الموبايل"}</h3>` +
+          (r.saved ? `<p style="grid-column:1/-1">${esc(name)} → <code>${esc(r.saved)}</code><span class="ar">في فولدر التنزيلات على التلفزيون.</span></p>` : "") +
+          phoneHtml(info, `<p>Get it on your phone too: scan and tap the file.<span class="ar">وتقدر تاخده على الموبايل: صوّر الكود ودوس على الملف.</span></p>`),
+        [["Done · تمام", closeDialog, true]],
+      );
+      if (!info.url) dialog.classList.add("noqr");
+    } catch (e) {
+      showDialog(`<h3>Couldn't save the file · الملف ماتحفظش</h3><p>${esc(e.message || e)}</p>`, [["OK", closeDialog, true]]);
+    }
+  }
+  window.usTvSave = (href, name) => F && save(href, name);
+  document.addEventListener(
+    "click",
+    (e) => {
+      const a = e.target && e.target.closest && e.target.closest("a[download]");
+      if (!a || !F || !/^(blob|data):/.test(a.href)) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      save(a.href, a.getAttribute("download"));
+    },
+    true,
+  );
+
   /* ------------------------------------------------------------ keys */
   window.addEventListener(
     "keydown",
@@ -188,6 +346,14 @@
         return;
       }
       if (!dir && k !== "Enter") return;
+      if (dialog) {
+        if (dir) {
+          move(dir);
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+        return; // OK presses the focused button
+      }
       let done = false;
       if (watching() && !$(".usp:not(.hidden) .usp-menu.on")) {
         if (k === "Enter") {
@@ -212,7 +378,7 @@
           window.USPlayer.fullscreen();
           setTimeout(showControls, 150);
           done = true;
-        } else if (!NATIVE.test(el.tagName)) {
+        } else if (!NATIVE.test(el.tagName) || el.tagName === "LABEL") {
           el.click();
           done = true;
         } else return; // buttons and links open themselves
@@ -231,6 +397,10 @@
       .map((s) => ($(s) ? 1 : 0))
       .join("");
   window.usTvBack = function () {
+    if (dialog) {
+      closeDialog();
+      return true;
+    }
     const menu = $(".usp:not(.hidden) .usp-menu.on");
     if (menu) {
       menu.classList.remove("on");

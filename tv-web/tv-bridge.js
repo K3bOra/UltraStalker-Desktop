@@ -12,6 +12,13 @@
       return Promise.reject(new Error("full screen is the page itself on the TV"));
     };
   } catch (_) {}
+  // Saving a file (a backup, a cleaned server list): the TV saves it and offers it to a
+  // phone (tv.js), also for links the page clicks without showing them.
+  const click = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () {
+    if (this.hasAttribute("download") && window.USTVFiles && /^(blob|data):/.test(this.href) && window.usTvSave) return window.usTvSave(this.href, this.getAttribute("download"));
+    return click.call(this);
+  };
   if (!N) return;
   const parse = (s, d) => {
     try {

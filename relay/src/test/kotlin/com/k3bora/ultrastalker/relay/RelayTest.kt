@@ -174,3 +174,43 @@ class RelayTest {
         assertEquals(2, links.get())
     }
 }
+
+class PhoneLinkTest {
+    @Test
+    fun `a phone sends a file with the code, gets the TV's files, nothing without the code`() {
+        val link = PhoneLink(0)
+        val info = link.open()
+        try {
+            val port = info["port"]!!.toInt()
+            val base = "http://127.0.0.1:$port"
+            fun call(path: String, body: ByteArray? = null): Pair<Int, String> {
+                val c = java.net.URL(base + path).openConnection() as java.net.HttpURLConnection
+                if (body != null) {
+                    c.requestMethod = "POST"
+                    c.doOutput = true
+                    c.outputStream.use { it.write(body) }
+                }
+                val code = c.responseCode
+                return code to ((if (code >= 400) c.errorStream else c.inputStream)?.use { String(it.readBytes()) } ?: "")
+            }
+            val code = link.code
+            assertTrue(call("/?c=$code").second.contains("Send to the TV"))
+            assertTrue(call("/?c=000").second.contains("Scan the code"))
+            assertEquals(403, call("/up?c=000&n=x.zip", "nope".toByteArray()).first)
+            assertEquals(null, link.take())
+            val up = call("/up?c=$code&n=" + Relay.enc("My backup/1.zip"), "PK-data".toByteArray())
+            assertEquals(200, up.first, up.second)
+            val got = link.take()!!
+            assertEquals("My backup 1.zip", got.first)
+            assertEquals("PK-data", String(got.second))
+            assertEquals(null, link.take())
+            val id = link.offer("UltraStalker-backup.zip", "zip!".toByteArray())
+            assertTrue(call("/?c=$code").second.contains("/f/$id?c=$code"))
+            assertEquals("zip!", call("/f/$id?c=$code").second)
+            assertEquals(403, call("/f/$id?c=1").first)
+            assertTrue(PhoneLink.qrSvg("http://192.168.1.5:47391/?c=123456").startsWith("<svg"))
+        } finally {
+            link.close()
+        }
+    }
+}
