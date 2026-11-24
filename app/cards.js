@@ -116,6 +116,9 @@
   const WATCH = "us-desk-watching";
   const watched = () => store.get(WATCH, {});
 
+  // the Cinema look asks for a series' season count (when this program already knows it)
+  window.usCardsSeasons = (row) => knownSeasons(keyOf(parse((row && (row.raw_title || row.title)) || "").title));
+
   /* ------------------------------------------------------------ the card */
   const seasonsLabel = (n) => n + (n === 1 ? " Season" : " Seasons");
 

@@ -150,7 +150,7 @@ export async function startServer({ webDir, relayFile, appCssFile, userDir, port
       return;
     }
     // the program's own window buttons and features
-    const own = url.pathname.match(/^\/__app\/(window-ui|features|sources-ui|cards)\.js$/);
+    const own = url.pathname.match(/^\/__app\/(window-ui|features|sources-ui|cards|cinema)\.js$/);
     if (own) {
       const f = path.join(path.dirname(appCssFile || ""), own[1] + ".js");
       if (appCssFile && fs.existsSync(f)) {
@@ -221,7 +221,7 @@ export async function startServer({ webDir, relayFile, appCssFile, userDir, port
         }
         if (type.startsWith("text/html")) {
           let html = fs.readFileSync(file, "utf8");
-          const inject = `<script>document.documentElement.classList.add("us-app");window.US_APP=${JSON.stringify({ version: version || "" })};</script>` + (appCss ? `<style id="usAppCss">${appCss}</style>` : "") + '<script defer src="/__app/window-ui.js"></script><script defer src="/__app/features.js"></script><script defer src="/__app/sources-ui.js"></script><script defer src="/__app/cards.js"></script>';
+          const inject = `<script>document.documentElement.classList.add("us-app");window.US_APP=${JSON.stringify({ version: version || "" })};</script>` + (appCss ? `<style id="usAppCss">${appCss}</style>` : "") + '<script defer src="/__app/window-ui.js"></script><script defer src="/__app/features.js"></script><script defer src="/__app/sources-ui.js"></script><script defer src="/__app/cards.js"></script><script defer src="/__app/cinema.js"></script>';
           // the "this is the program" marker first (the page reads it as it starts), the styles last
           const mark = inject.match(/^<script>[\s\S]*?<\/script>/)[0];
           html = html.replace(/<head[^>]*>/i, (h) => h + mark).replace("</head>", inject.slice(mark.length) + "</head>");
