@@ -1,11 +1,8 @@
-/* Ultra Stalker for Windows — premium movie and series cards.
+/* Ultra Stalker for Windows — movie and series cards.
 
-   The poster becomes the whole card: the title, the rating, the year and the country sit
-   on the picture; the quality and the language that providers put in the name
-   ("4K-AR - MobLand (2025) (GB)") become small badges; series show how many seasons they
-   have; hovering a card lifts it, draws a gold frame, sends a shine across it and shows
-   the genres and the story; what you started watching shows how far you got.
-   The website's cards, clicks, favorites and search stay as they are. */
+   The cards stay the website's own; series also show how many seasons they have (asked
+   for the cards on screen, two at a time, remembered for a week), and what you started
+   watching shows a thin gold line with how far you got. */
 (function () {
   "use strict";
   const QUALITY = /^(8K|4K|UHD|2160P?|FHD|1080P?|HD|720P?|SD|HEVC|H\.?265|X265|3D|HDR10?\+?|DV|DOLBY ?VISION)$/i;
@@ -134,77 +131,50 @@
     return f;
   }
 
-  function seasonsPill(n) {
-    return `<span class="usc-seasons">${ICON.seasons}<b>${esc(seasonsLabel(n))}</b></span>`;
+  // the page's own fact chip, with its seasons icon
+  function seasonsFact(n) {
+    const el = document.createElement("span");
+    el.className = "poster-fact seasons usc-fact" + (n ? "" : " wait");
+    el.innerHTML = ICON.seasons + '<span class="poster-fact-text">' + (n ? esc(seasonsLabel(n)) : "") + "</span>";
+    return el;
   }
 
+  /* The card stays the website's card (poster, title and facts below it); it only gets
+     the season count next to the rating, and a thin gold line for what you started. */
   function enhance(card) {
     if (card.classList.contains("usc") || !card.dataset.item) return;
     const frame = card.querySelector(".poster-frame");
-    const titleEl = card.querySelector(".poster-copy .item-title");
+    const copy = card.querySelector(".poster-copy");
+    const titleEl = copy && copy.querySelector(".item-title");
     if (!frame || !titleEl) return;
+    card.classList.add("usc");
     const raw = (titleEl.textContent || card.title || "").trim();
-    const p = parse(raw);
-    const f = factsOf(card);
+    card.dataset.uscKey = keyOf(parse(raw).title);
     const series = card.classList.contains("series-result");
-    const year = f.year || p.year;
-    const k = keyOf(p.title);
-    card.dataset.uscKey = k;
-    if (!card.title) card.title = raw;
-
-    const badges =
-      p.quality.map((q) => `<span class="usc-q">${esc(q)}</span>`).join("") +
-      p.lang.map((l) => `<span class="usc-l">${esc(l)}</span>`).join("");
-
-    const seasons = f.seasons || (series ? knownSeasons(k) : 0);
-    const bottom = document.createElement("div");
-    bottom.className = "usc-info";
-    const meta = [
-      f.rating ? `<span class="usc-rate">${ICON.star}${esc(f.rating)}</span>` : "",
-      year ? `<span>${esc(year)}</span>` : "",
-      f.age ? `<span class="usc-age">${esc(f.age)}</span>` : "",
-      p.country ? `<span class="usc-cc">${esc(p.country)}</span>` : "",
-    ].filter(Boolean);
-    bottom.innerHTML =
-      `<div class="usc-tags">${badges}${series ? (seasons ? seasonsPill(seasons) : '<span class="usc-seasons wait"></span>') : ""}<span class="usc-resume"></span></div>` +
-      `<div class="usc-title" dir="auto">${esc(p.title)}</div>` +
-      `<div class="usc-meta">${meta.join('<i class="usc-dot"></i>')}</div>` +
-      `<div class="usc-more"><div class="usc-genres"></div><div class="usc-story" dir="auto"></div></div>`;
-
-    const ring = document.createElement("span");
-    ring.className = "usc-ring";
-    const shine = document.createElement("span");
-    shine.className = "usc-shine";
+    if (series && !factsOf(card).seasons) {
+      let facts = copy.querySelector(".poster-facts");
+      if (!facts) {
+        facts = document.createElement("div");
+        facts.className = "poster-facts";
+        copy.appendChild(facts);
+      }
+      const n = knownSeasons(card.dataset.uscKey);
+      facts.appendChild(seasonsFact(n));
+      if (!n) watchSeasons(card);
+    }
     const bar = document.createElement("span");
     bar.className = "usc-bar";
     bar.innerHTML = "<i></i>";
-    frame.append(bottom, ring, shine, bar);
-    card.classList.add("usc");
-    const img = frame.querySelector("img");
-    const loaded = () => card.classList.add("usc-img");
-    if (!img || (img.complete && img.naturalWidth)) loaded();
-    else {
-      img.addEventListener("load", loaded, { once: true });
-      img.addEventListener("error", () => setTimeout(loaded, 1500), { once: true });
-    }
-    if (!p.quality.length && !p.lang.length) card.classList.add("usc-plain");
+    frame.appendChild(bar);
     progress(card);
-    if (series && !seasons) watchSeasons(card);
   }
 
   function progress(card) {
     const w = watched()[card.dataset.uscKey];
     const bar = card.querySelector(".usc-bar");
-    const resume = card.querySelector(".usc-resume");
-    if (!bar || !resume) return;
-    if (!w) {
-      card.classList.remove("usc-watched");
-      resume.textContent = "";
-      return;
-    }
-    card.classList.add("usc-watched");
-    bar.firstChild.style.width = Math.round(Math.min(1, Math.max(0.03, w.p || 0)) * 100) + "%";
-    resume.innerHTML = ICON.play + "<b>" + esc(w.ep ? "Continue " + w.ep : "Continue") + "</b>";
+    if (!bar) return;
+    card.classList.toggle("usc-watched", !!w);
+    if (w) bar.firstChild.style.width = Math.round(Math.min(1, Math.max(0.03, w.p || 0)) * 100) + "%";
   }
 
   /* ------------------------------------------------------------ season counts (visible cards, two at a time) */
@@ -233,14 +203,14 @@
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => {
           const n = j && Number(j.count);
-          const slot = card.querySelector(".usc-seasons.wait");
+          const slot = card.querySelector(".usc-fact.wait");
           if (Number.isSafeInteger(n) && n > 0) {
             rememberSeasons(card.dataset.uscKey, n);
-            if (slot) slot.outerHTML = seasonsPill(n);
+            if (slot) slot.replaceWith(seasonsFact(n));
           } else if (slot) slot.remove();
         })
         .catch(() => {
-          const slot = card.querySelector(".usc-seasons.wait");
+          const slot = card.querySelector(".usc-fact.wait");
           if (slot) slot.remove();
         })
         .finally(() => {
@@ -249,43 +219,6 @@
         });
     }
   }
-
-  /* ------------------------------------------------------------ genres and story when the mouse rests on a card */
-  const details = new Map();
-  let hoverT = 0;
-  function fill(card, d) {
-    const g = card.querySelector(".usc-genres");
-    const s = card.querySelector(".usc-story");
-    if (!g || !s || !d) return;
-    const genres = (Array.isArray(d.genres) ? d.genres : String(d.genres || "").split(/[,/|]/)).map((x) => String(x).trim()).filter(Boolean).slice(0, 3);
-    g.textContent = genres.join(" · ");
-    s.textContent = String(d.overview || "").trim();
-    card.classList.toggle("usc-has-more", !!(genres.length || d.overview));
-  }
-  document.addEventListener("mouseover", (e) => {
-    const card = e.target.closest && e.target.closest("#browseItems .poster-card.usc");
-    if (!card || card.dataset.uscHover) return;
-    card.dataset.uscHover = "1";
-    card.addEventListener("mouseleave", () => {
-      delete card.dataset.uscHover;
-      clearTimeout(hoverT);
-    }, { once: true });
-    const id = card.dataset.item;
-    if (details.has(id)) return fill(card, details.get(id));
-    clearTimeout(hoverT);
-    hoverT = setTimeout(async () => {
-      if (!card.dataset.uscHover || details.has(id)) return;
-      details.set(id, null);
-      try {
-        const r = await fetch("api/browse/details?item=" + enc(id), { cache: "no-store" });
-        const j = r.ok ? await r.json() : null;
-        details.set(id, j);
-        fill(card, j);
-      } catch (_) {
-        details.delete(id);
-      }
-    }, 380);
-  });
 
   /* ------------------------------------------------------------ remember what plays (the player tells us its time) */
   let playing = null; // { key, ep }

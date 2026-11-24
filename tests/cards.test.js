@@ -101,30 +101,23 @@ async function open(t) {
   return { page, errors, asked };
 }
 
-test("premium cards: the poster is the card, badges, seasons, hover story, progress", { timeout: 90000 }, async (t) => {
+test("series cards: the season count next to the rating, and how far you got", { timeout: 90000 }, async (t) => {
   const { page, errors, asked } = await open(t);
   await page.locator(".dk-src.xtream").first().click();
   await page.getByRole("button", { name: /^Series/ }).first().click();
   await page.waitForSelector("#browseItems .poster-card.usc");
-  await page.waitForFunction(() => document.querySelectorAll("#browseItems .poster-card.usc .usc-seasons:not(.wait)").length >= 6, null, { timeout: 15000 });
+  await page.waitForFunction(() => document.querySelectorAll("#browseItems .poster-card.usc .usc-fact:not(.wait)").length >= 6, null, { timeout: 15000 });
 
+  // the website's card stays: poster, the title below it, then the facts
   const first = page.locator("#browseItems .poster-card.usc").first();
-  assert.equal(await first.locator(".usc-title").textContent(), "MobLand");
-  assert.deepEqual(await first.locator(".usc-tags :is(.usc-q,.usc-l)").allTextContents(), ["4K", "AR"]);
-  assert.match(await first.locator(".usc-meta").textContent(), /8\.0.*2025.*GB/);
-  assert.equal(await first.locator(".usc-seasons").textContent(), "2 Seasons");
-  assert.equal(await first.locator(".poster-copy").isVisible(), false);
+  assert.equal(await first.locator(".poster-copy").isVisible(), true);
+  assert.equal(await first.locator(".item-title").textContent(), "4K-AR - MobLand (2025) (GB)");
+  assert.equal(await first.locator(".usc-fact").textContent(), "2 Seasons");
   assert.ok(asked.info >= 6 && asked.info <= 12, "season counts asked for the cards on screen: " + asked.info);
   await page.waitForTimeout(400);
   await page.screenshot({ path: path.join(os.tmpdir(), "us-cards-grid.png") });
 
-  await first.hover();
-  await page.waitForFunction(() => document.querySelector("#browseItems .poster-card.usc")?.classList.contains("usc-has-more"), null, { timeout: 8000 });
-  assert.match(await first.locator(".usc-genres").textContent(), /Crime · Drama · Thriller/);
-  await page.waitForTimeout(700);
-  await page.screenshot({ path: path.join(os.tmpdir(), "us-cards-hover.png"), clip: { x: 300, y: 0, width: 1000, height: 700 } });
-
-  // how far you got, kept by the program, shows on the card
+  // how far you got shows as a thin gold line on the poster
   await page.evaluate(() => {
     const acc = document.querySelector("#browseAccount").value;
     localStorage.setItem("us-desk-watching", JSON.stringify({ [acc + "|youth"]: { p: 0.42, ep: "S02E04", at: Date.now() } }));
@@ -134,12 +127,9 @@ test("premium cards: the poster is the card, badges, seasons, hover story, progr
   await page.waitForTimeout(1500);
   if (await page.locator(".dk-src.xtream").first().isVisible()) await page.locator(".dk-src.xtream").first().click();
   if (!(await page.locator("#browseItems .poster-card").count())) await page.getByRole("button", { name: /^Series/ }).first().click();
-  await page.waitForSelector("#browseItems .poster-card.usc-watched");
-  assert.match(await page.locator("#browseItems .poster-card.usc-watched .usc-resume").textContent(), /Continue S02E04/);
+  await page.waitForSelector("#browseItems .poster-card.usc-watched .usc-bar");
+  assert.equal(await page.locator("#browseItems .poster-card.usc-watched .usc-bar i").evaluate((e) => e.style.width), "42%");
   // counts come from memory the second time
-  assert.ok(await page.locator("#browseItems .poster-card.usc .usc-seasons:not(.wait)").count() >= 6);
-  await page.mouse.move(5, 500);
-  await page.waitForTimeout(500);
-  await page.screenshot({ path: path.join(os.tmpdir(), "us-cards-watched.png"), clip: { x: 300, y: 0, width: 1620, height: 520 } });
+  assert.ok(await page.locator("#browseItems .poster-card.usc .usc-fact:not(.wait)").count() >= 6);
   assert.deepEqual(errors, []);
 });
