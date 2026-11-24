@@ -42,7 +42,15 @@ export function setupUpdates(win) {
     // silent install, then start the new version
     setImmediate(() => autoUpdater.quitAndInstall(true, true));
   });
-  const check = () => autoUpdater.checkForUpdates().catch((e) => log("update check failed:", (e && e.message) || e));
+  // Look a little after the start, every 30 minutes, and when the window comes back to
+  // the front (at most every 10 minutes): a new version shows up while the program runs.
+  let lastCheck = 0;
+  const check = () => {
+    if (state.state === "ready" || state.state === "downloading") return;
+    lastCheck = Date.now();
+    autoUpdater.checkForUpdates().catch((e) => log("update check failed:", (e && e.message) || e));
+  };
   setTimeout(check, 20000);
-  setInterval(check, 4 * 3600 * 1000);
+  setInterval(check, 30 * 60 * 1000);
+  if (win) win.on("focus", () => Date.now() - lastCheck > 10 * 60 * 1000 && check());
 }

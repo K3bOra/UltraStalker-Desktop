@@ -285,3 +285,27 @@ test("the program opens the last live channel at start; episodes know the next o
   });
   assert.deepEqual(errors.filter((e) => !/Stream unavailable|cached|expired/i.test(e)), []);
 });
+
+test("Servers & Backup: one section at a time, and My servers picks from a list", { timeout: 60000 }, async (t) => {
+  const { page, errors, origin } = await open(t);
+  await page.goto(origin + "/sources.html#managerPanel");
+  await page.waitForSelector("#usSrv .us-srv-nav a.on");
+  assert.equal(await page.locator("#usSrv .us-srv-nav a.on").getAttribute("data-sec"), "managerPanel");
+  assert.equal(await page.locator("#managerPanel").isVisible(), true);
+  assert.equal(await page.locator("#connectionPanel").isVisible(), false);
+  assert.equal(await page.locator("#dkBarNav").isVisible(), false);
+  // the test source is an Xtream one
+  await page.waitForFunction(() => /No saved servers/.test(document.querySelector(".us-srv-list")?.textContent || ""));
+  await page.locator('.manager-group-tab[data-group="xtream"]').click();
+  await page.waitForFunction(() => document.querySelectorAll(".us-srv-list button").length === 1);
+  assert.equal(await page.locator("#usStatAll").textContent(), "1");
+  await page.locator(".us-srv-list button").first().click();
+  await page.waitForFunction(() => document.getElementById("managerName").value === "Test provider");
+  assert.equal(await page.locator(".us-srv-list button.on").count(), 1);
+  // the page's own links switch sections
+  await page.locator('#usSrv .us-srv-nav a[data-sec="backupPanel"]').click();
+  assert.equal(await page.locator("#backupPanel").isVisible(), true);
+  assert.equal(await page.locator("#managerPanel").isVisible(), false);
+  assert.equal(await page.locator("#importCheck").isVisible(), false);
+  assert.deepEqual(errors, []);
+});
