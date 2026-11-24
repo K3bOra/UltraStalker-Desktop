@@ -268,3 +268,90 @@ html.us-app #dkSrcBtn > i::before, html.us-app #dkSrcBtn > i::after {
 html.us-app #dkSrcBtn > i::after {
   transform: translateY(-1px) rotate(225deg);
 }
+
+/* ===== 2.6.2: the home screen ===== */
+/* the top bar is clear: the background art carries on behind it (a soft shade at the
+   very top keeps the buttons readable over posters scrolling underneath) */
+@layer windowsGlass {
+  html.us-app body.app:is(.dk-home,.desk-sources) #dkBar:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______){background:linear-gradient(180deg,rgba(8,7,6,.42),rgba(8,7,6,0))!important;box-shadow:none!important;border:0!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+  /* the side menu opens above the (clear) top bar, which dims behind it */
+  html.us-app body.desk.dk-drawer-open .dk-side.dk-drawer:not(#_):not(#__){z-index:140!important}
+  html.us-app body.desk.dk-drawer-open .dk-drawer-shade:not(#_):not(#__){z-index:135!important}
+  /* scrolled: a dark-to-clear shade, so what scrolls under the buttons fades away */
+  html.us-app body.app.us-scrolled:is(.dk-home,.desk-sources) #dkBar:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______){background:linear-gradient(180deg,rgba(8,7,6,.9) 0%,rgba(8,7,6,.62) 55%,rgba(8,7,6,0) 100%)!important}
+}
+html.us-app body.app:is(.dk-home,.desk-sources) #dkBar:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::before,html.us-app body.app:is(.dk-home,.desk-sources) #dkBar:not(#_):not(#__):not(#___):not(#____):not(#_____):not(#______)::after{display:none!important}
+/* home (no source open): Live / Movies / Series have nothing to show yet */
+html.us-app body.dk-home #dkBarNav{visibility:hidden!important}
+/* "everywhere.": bright gold with a gold edge (the dark text shadow dimmed the gold) */
+html.us-app body.app .gold-text:not(#_){text-shadow:none!important;-webkit-text-stroke:.6px rgba(240,210,140,.9);paint-order:stroke fill;filter:drop-shadow(0 1px 1px rgba(0,0,0,.55)) drop-shadow(0 0 14px rgba(226,192,124,.35))}
+/* Portals / Favorites on gold: dark icon lines, so the icon shows */
+html.us-app .dk-qb.on .dk-ic svg,html.us-app .dk-qb.on .dk-ic svg *{stroke:#1a1306!important;color:#1a1306!important}
+html.us-app .dk-qb.on .dk-ic svg [fill]:not([fill=none]){fill:#1a1306!important}
+
+/* ===== 2.6.2: Servers & Backup page — compact, centred, one design ===== */
+@layer windowsGlass {
+  html.us-app body.desk-sources{--us-rim:rgba(234,210,163,.18);--us-ink:#f3e9d2;--us-mute:#b3a88f;--us-field:rgba(8,7,6,.62)}
+  html.us-app body.desk-sources .wrap{max-width:1320px!important;margin:0 auto!important;padding:108px 36px 48px!important;box-sizing:border-box!important}
+  html.us-app body.desk-sources .topbar,html.us-app body.desk-sources .hero .logo-wrap,html.us-app body.desk-sources #browsePanel,html.us-app body.desk-sources [hidden],html.us-app body.desk-sources .hidden{display:none!important}
+  /* page title */
+  html.us-app body.desk-sources .hero{display:block!important;margin:0 0 26px!important;padding:0 4px!important;text-align:left!important;background:none!important;border:0!important;box-shadow:none!important;min-height:0!important}
+  html.us-app body.desk-sources .hero .kicker{display:block!important;margin:0 0 8px!important;font-size:12px!important;font-weight:700!important;letter-spacing:.16em!important;text-transform:uppercase!important;color:#d9b977!important}
+  html.us-app body.desk-sources .hero h1{margin:0!important;font-size:34px!important;line-height:1.15!important;font-weight:700!important;color:var(--us-ink)!important;letter-spacing:-.01em!important;text-shadow:none!important}
+  html.us-app body.desk-sources .hero p{margin:8px 0 0!important;max-width:760px!important;font-size:14.5px!important;line-height:1.6!important;color:var(--us-mute)!important}
+  /* two panels side by side, the wide ones below */
+  html.us-app body.desk-sources main.shell{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:22px!important;align-items:start!important;margin:0!important;padding:0!important;width:auto!important;max-width:none!important}
+  html.us-app body.desk-sources main.shell>section{grid-column:auto!important;margin:0!important;width:auto!important;max-width:none!important;padding:26px 28px!important;border-radius:22px!important;border:1px solid var(--us-rim)!important;background:linear-gradient(160deg,rgba(40,35,28,.72),rgba(15,13,11,.86) 55%)!important;box-shadow:0 30px 60px -40px rgba(0,0,0,.9),inset 0 1px rgba(255,244,218,.07)!important;-webkit-backdrop-filter:blur(12px)!important;backdrop-filter:blur(12px)!important;box-sizing:border-box!important}
+  html.us-app body.desk-sources main.shell>#importPanel,html.us-app body.desk-sources main.shell>#backupPanel{grid-column:1/-1!important}
+  /* panel heads */
+  html.us-app body.desk-sources .connection-head{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:16px!important;margin:0 0 20px!important}
+  html.us-app body.desk-sources .connection-head h2{display:flex!important;align-items:center!important;gap:10px!important;margin:0!important;font-size:20px!important;font-weight:700!important;color:var(--us-ink)!important;letter-spacing:0!important}
+  html.us-app body.desk-sources .connection-head h2:before{content:""!important;width:4px!important;height:20px!important;border-radius:4px!important;background:linear-gradient(180deg,#f3dfa6,#b98d43)!important;flex:none!important}
+  html.us-app body.desk-sources .connection-head h2 small{font-size:14px!important;font-weight:500!important;color:#cdb98a!important}
+  html.us-app body.desk-sources .connection-head p{margin:6px 0 0!important;font-size:13px!important;line-height:1.55!important;color:var(--us-mute)!important;max-width:560px}
+  html.us-app body.desk-sources .badge{flex:none!important;display:inline-flex!important;align-items:center!important;gap:7px!important;height:30px!important;padding:0 12px!important;border-radius:999px!important;font-size:12px!important;font-weight:600!important;color:#e6d6b0!important;background:rgba(255,240,210,.05)!important;border:1px solid var(--us-rim)!important;white-space:nowrap!important}
+  /* segmented tabs */
+  html.us-app body.desk-sources .connection-tabs{display:flex!important;gap:4px!important;margin:0 0 20px!important;padding:5px!important;border-radius:999px!important;background:rgba(0,0,0,.32)!important;border:1px solid rgba(234,210,163,.1)!important;box-shadow:none!important}
+  html.us-app body.desk-sources .connection-tab{flex:1!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;height:40px!important;min-height:0!important;padding:0 16px!important;border-radius:999px!important;border:0!important;background:none!important;box-shadow:none!important;color:#cfc3a9!important;font-size:14px!important;font-weight:600!important;flex-direction:row!important}
+  html.us-app body.desk-sources .connection-tab:hover{background:rgba(255,240,210,.06)!important;color:#fff6e3!important}
+  html.us-app body.desk-sources .connection-tab.active{background:linear-gradient(135deg,#f3dfa6,#d6ae63 55%,#b98d43)!important;color:#1a1306!important;box-shadow:0 8px 20px -12px rgba(226,192,124,.8),inset 0 1px rgba(255,255,255,.45)!important}
+  html.us-app body.desk-sources .manager-group-count{display:inline-grid!important;place-items:center!important;min-width:24px!important;height:20px!important;padding:0 7px!important;border-radius:999px!important;font-size:11.5px!important;font-weight:700!important;background:rgba(0,0,0,.28)!important;color:inherit!important;margin:0!important}
+  /* fields */
+  html.us-app body.desk-sources .connection-form,html.us-app body.desk-sources .manager-grid:not(.hidden){display:grid!important;grid-template-columns:1fr 1fr!important;gap:14px 14px!important;margin:0 0 18px!important}
+  html.us-app body.desk-sources :is(.connection-field,.manager-field){display:flex!important;flex-direction:column!important;gap:6px!important;margin:0!important;min-width:0!important}
+  html.us-app body.desk-sources :is(.connection-field,.manager-field).full{grid-column:1/-1!important}
+  html.us-app body.desk-sources :is(.connection-field,.manager-field).hidden{display:none!important}
+  html.us-app body.desk-sources :is(.connection-field,.manager-field) label{font-size:11.5px!important;font-weight:600!important;letter-spacing:.06em!important;text-transform:uppercase!important;color:#bfae86!important;margin:0!important}
+  html.us-app body.desk-sources :is(.connection-input,.manager-select){height:46px!important;min-height:0!important;padding:0 14px!important;border-radius:12px!important;border:1px solid rgba(234,210,163,.16)!important;background:var(--us-field)!important;color:var(--us-ink)!important;font-size:14.5px!important;font-weight:500!important;box-shadow:inset 0 1px 2px rgba(0,0,0,.4)!important;outline:none!important;width:100%!important;box-sizing:border-box!important}
+  html.us-app body.desk-sources :is(.connection-input,.manager-select):focus{border-color:#d9b977!important;box-shadow:0 0 0 3px rgba(226,192,124,.18)!important}
+  html.us-app body.desk-sources .connection-input::placeholder{color:#7d745f!important}
+  html.us-app body.desk-sources .manager-select-wrap{margin:0 0 16px!important}
+  html.us-app body.desk-sources .manager-type{height:46px!important;display:flex!important;align-items:center!important;padding:0 14px!important;border-radius:12px!important;background:rgba(255,240,210,.04)!important;border:1px dashed rgba(234,210,163,.16)!important;font-size:13px!important;font-weight:700!important;letter-spacing:.08em!important;color:#e2c07c!important}
+  /* buttons */
+  html.us-app body.desk-sources :is(.connection-actions,.manager-actions,.manager-links,.import-actions){display:flex!important;flex-wrap:wrap!important;gap:10px!important;margin:0 0 14px!important;grid-template-columns:none!important}
+  html.us-app body.desk-sources .btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:8px!important;height:44px!important;min-height:0!important;width:auto!important;padding:0 22px!important;border-radius:999px!important;border:1px solid var(--us-rim)!important;background:rgba(255,240,210,.05)!important;color:#efe2c3!important;font-size:14px!important;font-weight:600!important;letter-spacing:0!important;text-decoration:none!important;box-shadow:none!important;cursor:pointer!important;flex:none!important}
+  html.us-app body.desk-sources .btn:hover:not(:disabled){background:rgba(226,192,124,.13)!important;border-color:rgba(226,192,124,.45)!important;color:#fff6e3!important}
+  html.us-app body.desk-sources .btn.green{background:linear-gradient(135deg,#f3dfa6,#d6ae63 55%,#b98d43)!important;color:#1a1306!important;border-color:transparent!important;box-shadow:0 10px 24px -14px rgba(226,192,124,.85),inset 0 1px rgba(255,255,255,.45)!important}
+  html.us-app body.desk-sources .btn.green:hover:not(:disabled){filter:brightness(1.07)!important;color:#1a1306!important}
+  html.us-app body.desk-sources .btn.danger{color:#ffb4a8!important;border-color:rgba(255,120,100,.3)!important;background:rgba(255,90,70,.06)!important}
+  html.us-app body.desk-sources .btn:disabled{opacity:.42!important;cursor:default!important;filter:none!important}
+  html.us-app body.desk-sources .connection-actions .btn,html.us-app body.desk-sources .manager-actions .btn{flex:1 1 0!important}
+  html.us-app body.desk-sources .manager-actions .btn.danger{flex:0 0 auto!important}
+  html.us-app body.desk-sources .manager-links .btn{height:40px!important;padding:0 16px!important;font-size:13.5px!important}
+  html.us-app body.desk-sources .manager-links{margin:0!important}
+  /* messages */
+  html.us-app body.desk-sources .connection-result{margin:0 0 14px!important;padding:11px 14px 11px 16px!important;border-radius:12px!important;border:0!important;border-left:3px solid rgba(226,192,124,.7)!important;background:rgba(255,240,210,.04)!important;color:#d9ccaa!important;font-size:13px!important;line-height:1.55!important;white-space:pre-line!important;box-shadow:none!important;min-height:0!important}
+  html.us-app body.desk-sources main.shell>section>.connection-result:last-child{margin-bottom:0!important}
+  /* backup */
+  html.us-app body.desk-sources .backup-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:16px!important;margin:0 0 14px!important}
+  html.us-app body.desk-sources .backup-card{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:8px!important;padding:20px 22px!important;border-radius:18px!important;border:1px solid rgba(234,210,163,.14)!important;background:rgba(0,0,0,.22)!important;box-shadow:none!important}
+  html.us-app body.desk-sources .backup-card strong{font-size:16.5px!important;font-weight:700!important;color:var(--us-ink)!important;margin:0!important}
+  html.us-app body.desk-sources .backup-card p{flex:1!important;margin:0 0 6px!important;font-size:13px!important;line-height:1.65!important;color:var(--us-mute)!important}
+  html.us-app body.desk-sources .backup-card code{font-size:11.5px!important;padding:1px 6px!important;border-radius:6px!important;background:rgba(255,240,210,.07)!important;color:#e9d29d!important}
+  html.us-app body.desk-sources .launch-half-kicker{font-size:11px!important;font-weight:700!important;letter-spacing:.14em!important;color:#d9b977!important}
+  html.us-app body.desk-sources .backup-card .btn{width:auto!important;margin-top:auto!important}
+  /* import results keep their own list styles */
+  html.us-app body.desk-sources #importProgress{width:100%!important;height:6px!important;margin:4px 0 14px!important;accent-color:#e2c07c}
+  html.us-app body.desk-sources .footer{margin:28px 0 0!important;text-align:center!important;font-size:12px!important;color:#8f8672!important}
+  @media (max-width:1180px){html.us-app body.desk-sources main.shell{grid-template-columns:1fr!important}html.us-app body.desk-sources .backup-grid{grid-template-columns:1fr!important}}
+}

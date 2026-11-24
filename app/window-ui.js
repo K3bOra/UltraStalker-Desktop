@@ -3,6 +3,28 @@
 (function () {
   const W = window.usNative && window.usNative.win;
   if (!W) return;
+  // The program's own version where the website shows its own (drawer, footer).
+  const appVersion = (window.US_APP && window.US_APP.version) || "";
+  function showVersion() {
+    if (!appVersion) return;
+    const label = "Program · V" + appVersion;
+    const v = document.getElementById("dkVer");
+    if (v && v.textContent !== label) v.textContent = label;
+    document.querySelectorAll(".footer").forEach((f) => {
+      if (/Web · V/.test(f.textContent)) f.innerHTML = "<b>Ultra Stalker</b> · " + label;
+    });
+  }
+  // the page writes its own version once the drawer is built: put ours back then
+  let tries = 0;
+  const keep = setInterval(() => {
+    showVersion();
+    if (++tries > 20) clearInterval(keep);
+  }, 500);
+  document.addEventListener("DOMContentLoaded", showVersion);
+  // the clear top bar gets a shade once the page scrolls under it
+  const scrolled = () => document.body && document.body.classList.toggle("us-scrolled", window.scrollY > 24);
+  window.addEventListener("scroll", scrolled, { passive: true });
+  document.addEventListener("DOMContentLoaded", scrolled);
   // A section change uses the current source. Keep the items stage (and its
   // three tabs) on screen while the shared browser loads the new categories.
   async function switchSection(event) {
