@@ -44,6 +44,20 @@ const poster = (i) => {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600"><defs><linearGradient id="g" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient><radialGradient id="r" cx=".5" cy=".35" r=".6"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs><rect width="400" height="600" fill="url(#g)"/><rect width="400" height="600" fill="url(#r)"/><circle cx="200" cy="230" r="95" fill="#000" opacity=".28"/><rect x="0" y="0" width="400" height="40" fill="#000" opacity=".5"/><text x="200" y="28" font-family="Arial" font-weight="700" font-size="22" fill="#fff" text-anchor="middle">4K ULTRA HD</text><text x="200" y="440" font-family="Georgia" font-weight="700" font-size="44" fill="#fff" text-anchor="middle" opacity=".92">${t.toUpperCase().replace(/&/g, "&amp;")}</text></svg>`;
 };
 
+
+// the server's card, then Series (the program may already reopen them by itself)
+async function toSeries(page) {
+  for (let i = 0; i < 20; i++) {
+    if (await page.locator("#browseItems .poster-card").count()) return;
+    if (await page.locator(".dk-src.xtream").first().isVisible().catch(() => false)) await page.locator(".dk-src.xtream").first().click().catch(() => {});
+    await page.evaluate(() => {
+      const b = [...document.querySelectorAll('[data-go="series"], .type[data-media="series"]')].find((x) => x.getClientRects().length);
+      if (b) b.click();
+    });
+    await page.waitForTimeout(700);
+  }
+}
+
 async function open(t) {
   const userDir = fs.mkdtempSync(path.join(os.tmpdir(), "us-cards-"));
   const port = 47600 + Math.floor(Math.random() * 200);
@@ -103,8 +117,7 @@ async function open(t) {
 
 test("series cards: the season count next to the rating, and how far you got", { timeout: 90000 }, async (t) => {
   const { page, errors, asked } = await open(t);
-  await page.locator(".dk-src.xtream").first().click();
-  await page.getByRole("button", { name: /^Series/ }).first().click();
+  await toSeries(page);
   await page.waitForSelector("#browseItems .poster-card.usc");
   await page.waitForFunction(() => document.querySelectorAll("#browseItems .poster-card.usc .usc-fact:not(.wait)").length >= 6, null, { timeout: 15000 });
 
@@ -125,8 +138,7 @@ test("series cards: the season count next to the rating, and how far you got", {
   await page.reload();
   await page.waitForFunction(() => document.querySelector("#browseAccount")?.options.length > 1);
   await page.waitForTimeout(1500);
-  if (await page.locator(".dk-src.xtream").first().isVisible()) await page.locator(".dk-src.xtream").first().click();
-  if (!(await page.locator("#browseItems .poster-card").count())) await page.getByRole("button", { name: /^Series/ }).first().click();
+  await toSeries(page);
   await page.waitForSelector("#browseItems .poster-card.usc-watched .usc-bar");
   assert.equal(await page.locator("#browseItems .poster-card.usc-watched .usc-bar i").evaluate((e) => e.style.width), "42%");
   // counts come from memory the second time
