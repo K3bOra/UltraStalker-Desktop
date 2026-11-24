@@ -9,7 +9,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # each version is published as a release, and "tv-latest" always holds the newest APK
+  contents: write
 
 jobs:
   build:
@@ -64,6 +65,7 @@ jobs:
           (cd out && sha256sum *.apk | tee "UltraStalker-TV-$v.apk.sha256.txt")
 
       - name: Remote-control tests (the TV's own server + Chrome)
+        id: remote
         run: |
           ./gradlew :relay:serve -Pweb=$PWD/app/src/main/assets/site -Pport=47450 --console=plain > serve.log 2>&1 &
           for i in $(seq 1 90); do grep -q SERVING serve.log && break; sleep 2; done
@@ -75,3 +77,25 @@ jobs:
           name: UltraStalker-TV
           path: out/*
           retention-days: 30
+
+      # Direct links for the TV (Downloader app, a browser):
+      #   https://github.com/K3bOra/UltraStalker-Desktop/releases/download/tv-latest/UltraStalker-TV.apk
+      # Never marked "latest": that place belongs to the Windows program's updates.
+      - name: Publish the APK
+        if: github.ref == 'refs/heads/android-tv' && steps.remote.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          v=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          R=$GITHUB_REPOSITORY
+          if ! gh release view "tv-v$v" --repo $R > /dev/null 2>&1; then
+            gh release create "tv-v$v" "out/UltraStalker-TV-$v.apk" --repo $R --target $GITHUB_SHA --latest=false \
+              --title "Ultra Stalker TV $v" --notes "Ultra Stalker for Android TV $v — install over the previous version."
+          fi
+          cp "out/UltraStalker-TV-$v.apk" out/UltraStalker-TV.apk
+          if ! gh release view tv-latest --repo $R > /dev/null 2>&1; then
+            gh release create tv-latest --repo $R --target $GITHUB_SHA --latest=false --title "Ultra Stalker TV (newest)" \
+              --notes "Always the newest Ultra Stalker TV: https://github.com/$R/releases/download/tv-latest/UltraStalker-TV.apk"
+          fi
+          gh release upload tv-latest out/UltraStalker-TV.apk --repo $R --clobber
+          gh release edit tv-latest --repo $R --notes "Always the newest Ultra Stalker TV ($v): https://github.com/$R/releases/download/tv-latest/UltraStalker-TV.apk"
