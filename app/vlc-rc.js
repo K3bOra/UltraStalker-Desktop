@@ -67,9 +67,14 @@ export class Rc {
     return p;
   }
   async number(text) {
-    const l = await this.cmd(text, { single: true, timeout: 800 });
-    const n = parseFloat((l[0] || "").trim());
+    const n = await this.numberOrNaN(text);
     return isFinite(n) ? n : 0;
+  }
+  /* NaN when VLC gave no number in time (busy, or a line from something else) */
+  async numberOrNaN(text) {
+    const l = await this.cmd(text, { single: true, timeout: 1200 });
+    const t = (l[0] || "").trim();
+    return /^-?\d+(\.\d+)?$/.test(t) ? parseFloat(t) : NaN;
   }
 }
 

@@ -70,6 +70,15 @@ export function log(...parts) {
   } catch (_) {}
 }
 
+/* The page's volume (0-256, 256 = full) → VLC's. VLC on Windows cubes what it is
+   given (its sound output is "tapered"), so a straight value made the bar quiet for most
+   of its length and loud only at the end. Sent as √v, the sound follows v^1.5: half the
+   bar is about -9 dB, three quarters about -4 dB — an even feel along the bar. */
+export function vlcVolume(n) {
+  const v = Math.max(0, Math.min(1, (Number(n) || 0) / 256));
+  return Math.round(256 * Math.sqrt(v));
+}
+
 export function setupVlc({ win, bundle, shortLink, snapDir }) {
   const exe = findVlc(bundle);
   const vlcLog = path.join(LOG_DIR(), "vlc-log.txt");
@@ -87,7 +96,7 @@ export function setupVlc({ win, bundle, shortLink, snapDir }) {
   }
   let proc = null, rc = null, starting = null, vwin = null;
   const version = vlcVersion(exe);
-  let rect = null, fit = "fit", info = {}, polls = 0, lastStats = null;
+  let rect = null, fit = "fit", info = {}, polls = 0, lastStats = null, unclear = 0, saidStopped = false;
   let position = { time: 0, length: 0 };
   let ops = Promise.resolve(), pendingVol = null;
   /* While VLC is paused its control answers only "pause" (everything else gets "Type
@@ -191,7 +200,7 @@ export function setupVlc({ win, bundle, shortLink, snapDir }) {
       proc.stderr.on("data", (d) => (stderr = (stderr + d).slice(-2000)));
       proc.on("error", (e) => log("VLC failed to start:", e.message));
       proc.on("exit", (code) => {
-        log("VLC exited", code, stderr.trim().split(/\r?\n/).slice(-3).join(" | "));
+        log("VLC exited", code, stderr.trim().split(/\r?\n/).slice(-3).join(" | "), "· log:", vlcErrors());
         if (rc) rc.closed = true;
       });
       // connect to its control port (VLC needs a moment to start)
@@ -340,6 +349,8 @@ export function setupVlc({ win, bundle, shortLink, snapDir }) {
         info = {};
         fitKey = "";
         polls = 0;
+        unclear = 0;
+        saidStopped = false;
         position = { time: 0, length: 0 };
         lastStats = null;
         fit = o.fit === "fill" ? "fill" : "fit";
@@ -356,7 +367,7 @@ export function setupVlc({ win, bundle, shortLink, snapDir }) {
           logMark = 0;
         }
         await r.cmd("add " + link.replace(/\s/g, "%20") + " " + opts.join(" "));
-        if (o.volume != null) await r.cmd("volume " + Math.max(0, Math.min(512, Math.round(+o.volume) || 0)));
+        if (o.volume != null) await r.cmd("volume " + vlcVolume(o.volume));
         log("VLC playing", link);
         return { ok: true, version };
       } catch (e) {
@@ -387,6 +398,7 @@ export function setupVlc({ win, bundle, shortLink, snapDir }) {
     return RATES[key] ? ["normal"].concat(RATES[key]) : null;
   }
   ipcMain.handle("vlc:cmd", async (_, name, arg) => {
+    if (name === "volume" && /^-?\d{1,9}$/.test(String(arg))) arg = String(vlcVolume(arg));
     if (name === "rate") {
       const lines = rateLines(arg);
       if (!lines || !rc || rc.closed) return false;
@@ -437,13 +449,27 @@ export function setupVlc({ win, bundle, shortLink, snapDir }) {
       rc.state = state;
       return { state, ...position, info, stats: lastStats, version, error: "" };
     }
-    const time = await rc.number("get_time");
-    const length = await rc.number("get_length");
+    // A slow or unclear answer is not "stopped": keep what we knew (a busy VLC must
+    // not make the page give up on a stream that is playing).
+    let time = await rc.numberOrNaN("get_time");
+    let length = await rc.numberOrNaN("get_length");
+    const playing = await rc.numberOrNaN("is_playing");
+    if (!isFinite(time)) time = position.time;
+    if (!isFinite(length)) length = position.length;
     position = { time, length };
-    const playing = await rc.number("is_playing");
-    if (!playing && state !== "paused") state = "stopped";
-    else if (playing && state === "stopped") state = "playing";
+    if (!isFinite(playing)) {
+      unclear++;
+      if (state === "stopped" && unclear < 8) state = "opening";
+    } else {
+      unclear = 0;
+      if (!playing && state !== "paused") state = "stopped";
+      else if (playing && state === "stopped") state = "playing";
+    }
     rc.state = state;
+    if (state === "stopped" && !saidStopped) {
+      saidStopped = true;
+      log("VLC reports stopped:", JSON.stringify({ time, length, playing, status: txt.replace(/\s+/g, " ").slice(0, 300), errors: vlcErrors() }));
+    }
     polls++;
     if (state !== "stopped" && (!info.width || polls % 5 === 0)) {
       const i = parseInfo(await rc.cmd("info", { block: /end of stream info|^no input/ }));
