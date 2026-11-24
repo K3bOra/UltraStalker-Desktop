@@ -27,6 +27,8 @@ const usX = (() => {
 
   const isLive = () => !!(current && current.live);
   const playing = () => !!(current && (current.stream || current.url) && !current._halted);
+  // the cards remember how far a movie or an episode got
+  window.usxState = () => (playing() ? { t: A.time() || 0, d: A.duration() || 0, live: isLive() } : null);
   const nextInfo = () => {
     if (isLive() || !window.usDesktopNext) return null;
     try {
