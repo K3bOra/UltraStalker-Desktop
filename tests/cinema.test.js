@@ -90,7 +90,31 @@ async function open(t) {
       } else if (action === "get_vod_info") body = { info: { plot: "When a deal goes wrong, a retired agent is pulled back for one last mission across three continents.", genre: "Action, Thriller", duration_secs: 7620, releasedate: "2026-03-01" } };
       return route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
     }
-    if (url.pathname.startsWith("/tmdb/")) return route.fulfill({ contentType: "application/json", body: "{}" });
+    if (url.hostname === "image.tmdb.org") {
+      const m = url.pathname.match(/\/(img|bd|face)\/(\d+)/);
+      const k = m ? +m[2] : 0;
+      const face = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="hsl(${k * 47},35%,30%)"/><circle cx="50" cy="40" r="18" fill="#000" opacity=".35"/><ellipse cx="50" cy="92" rx="34" ry="28" fill="#000" opacity=".35"/></svg>`;
+      return route.fulfill({ contentType: "image/svg+xml", body: !m ? face : m[1] === "img" ? poster(k) : m[1] === "bd" ? wideArt(k) : face });
+    }
+    if (url.pathname.startsWith("/tmdb/")) {
+      // a small TMDB: the first series has a picture, seasons, episodes with pictures, cast and a trailer
+      const p = url.pathname.slice(6);
+      const q = url.searchParams.get("query") || "";
+      const i = SHOWS.findIndex(([n]) => n.replace(/^.* - /, "").replace(/\s*\(.*$/, "").toLowerCase() === q.toLowerCase());
+      let body = {};
+      if (/^search\/tv/.test(p) && i >= 0) body = { results: [{ id: 7000 + i, name: q, first_air_date: "2025-03-01", popularity: 50 }] };
+      const tv = p.match(/^tv\/(\d+)(?:\/season\/(\d+))?$/);
+      if (tv && !tv[2]) {
+        const k = +tv[1] - 7000;
+        body = { id: +tv[1], name: SHOWS[k][0], backdrop_path: `/bd/${k}.svg`, poster_path: `/img/${k}.svg`, overview: "A fixer for a London crime family holds things together as two dynasties go to war.", genres: [{ name: "Crime" }, { name: "Drama" }], vote_average: 8.1, first_air_date: "2025-03-01", number_of_seasons: 2,
+          seasons: [1, 2].map((n) => ({ season_number: n, poster_path: `/img/${(k + n) % 12}.svg`, episode_count: 8, air_date: 2024 + n + "-03-01" })),
+          credits: { cast: ["Tom Hardy", "Helen Mirren", "Pierce Brosnan", "Paddy Considine", "Joanne Froggatt", "Lara Pulver"].map((name, c) => ({ name, character: ["Harry Da Souza", "Maeve Harrigan", "Conrad Harrigan", "Richie Stevenson", "Jan Da Souza", "Bella Harrigan"][c], profile_path: `/face/${c}.svg` })) },
+          images: { backdrops: [{ file_path: `/bd/${k}.svg` }], logos: [] },
+          translations: { translations: [{ iso_639_1: "ar", data: { overview: "هاري دا سوزا، رجل الحلول لعائلة إجرامية في لندن، يحاول أن يمسك بزمام الأمور بينما تندلع حرب بين عائلتين." } }, { iso_639_1: "en", data: { overview: "A fixer for a London crime family." } }] },
+          videos: { results: [{ site: "YouTube", type: "Trailer", key: "abcdefghijk", official: true }] } };
+      } else if (tv && tv[2]) body = { episodes: Array.from({ length: 8 }, (_, e) => ({ episode_number: e + 1, name: ["Stick or Twist", "Bad Blood", "Old Friends", "The Deal", "Crossroads", "The Fall", "Kingdom", "Endgame"][e], still_path: `/bd/${(e + 2) % 12}.svg`, overview: "Harry finds himself caught between both families." })) };
+      return route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
+    }
     if (url.origin !== origin) return route.abort();
     return route.continue();
   });
@@ -133,6 +157,24 @@ test("the Cinema look: home, series, details with episodes, movies, live, search
   await page.waitForSelector("#usCine .cn-ep");
   await page.waitForTimeout(1300);
   await shot(page, "4-details");
+  await page.keyboard.press("Escape");
+  // a series TMDB knows: its picture, season posters, episode pictures and names, cast, trailer, Arabic story
+  await page.locator('#usCine .cn-rail [data-v="series"]').click();
+  await page.locator("#usCine .cn-tabs .cn-all").click();
+  await page.locator('#usCine .cn-folders-l button:has-text("يعرض الآن أجنبي")').click();
+  await page.waitForSelector("#usCine .cn-grid .cn-card.ok");
+  await page.locator('#usCine .cn-grid .cn-card:has-text("MobLand")').first().click();
+  await page.waitForSelector("#usCine .cn-ep.still");
+  await page.waitForSelector("#usCine .cn-person");
+  await page.waitForSelector('#usCine [data-b="trailer"]');
+  assert.match(await page.locator("#usCine .cn-ep .cn-ep-t").first().textContent(), /Stick or Twist/);
+  assert.match(await page.locator("#usCine .cn-story").textContent(), /هاري دا سوزا/);
+  assert.match(await page.evaluate(() => document.querySelector("#usCine .cn-bg img.on").src), /image\.tmdb\.org.*\/bd\//);
+  await page.waitForTimeout(1200);
+  await shot(page, "4b-details-tmdb");
+  await page.evaluate(() => document.querySelector("#usCine .cn-main").scrollTo(0, 99999));
+  await page.waitForTimeout(800);
+  await shot(page, "4c-details-cast");
   assert.ok((await page.locator("#usCine .cn-seasons button").count()) >= 1);
   await page.evaluate(() => {
     window.openPlayerSheet = (r) => (window.__played = r);

@@ -65,6 +65,7 @@
     servers: '<rect x="3.5" y="4" width="17" height="6.5" rx="2"/><rect x="3.5" y="13.5" width="17" height="6.5" rx="2"/><path d="M7.5 7.25h.01M7.5 16.75h.01"/>',
     classic: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/>',
     cinema: '<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M10 9v6l5-3z"/>',
+    film: '<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M7 4.5v15M17 4.5v15M3 9h4M17 9h4M3 15h4M17 15h4"/>',
     play: '<path class="f" d="M7.5 5.2v13.6a1 1 0 0 0 1.52.85l10.9-6.8a1 1 0 0 0 0-1.7L9.02 4.35A1 1 0 0 0 7.5 5.2z"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
@@ -288,11 +289,55 @@
     return (
       '<section class="cn-hero"><div class="cn-hero-in">' +
       '<div class="cn-kick"></div><img class="cn-logo-t" alt=""><h1 class="cn-title" dir="auto"></h1>' +
-      '<div class="cn-meta"></div><p class="cn-story" dir="auto"></p>' +
+      '<div class="cn-meta"></div><p class="cn-tag" dir="auto"></p><p class="cn-story" dir="auto"></p>' +
       (withButtons ? '<div class="cn-acts"></div>' : "") +
       "</div></section>"
     );
   }
+  /* TMDB: the story in Arabic or English, and the trailer (asked once per title) */
+  const tmdbCache = new Map();
+  function tmdbOf(ex, media) {
+    if (!ex || !ex.tmdb || !E().tmdbGet) return Promise.resolve(null);
+    const k = media + ":" + ex.tmdb;
+    if (!tmdbCache.has(k)) tmdbCache.set(k, E().tmdbGet((media === "series" ? "tv/" : "movie/") + ex.tmdb, { language: "en-US", append_to_response: "translations,videos" }).catch(() => null));
+    return tmdbCache.get(k);
+  }
+  const storyLang = () => {
+    try {
+      return localStorage.getItem("us-story-language") === "en" ? "en" : "ar";
+    } catch (_) {
+      return "ar";
+    }
+  };
+  function storyFrom(payload, fallback) {
+    const tr = (payload && payload.translations && payload.translations.translations) || [];
+    const pick = (l) => (tr.find((t) => t.iso_639_1 === l && t.data && String(t.data.overview || "").trim()) || { data: {} }).data.overview || "";
+    const want = storyLang();
+    const out = { ar: pick("ar"), en: pick("en") || (payload && payload.overview) || "" };
+    return (out[want] || "").trim() || String(fallback || "").trim() || (out[want === "ar" ? "en" : "ar"] || "").trim();
+  }
+  function trailerOf(payload) {
+    const v = ((payload && payload.videos && payload.videos.results) || []).filter((x) => x.site === "YouTube" && x.type === "Trailer" && /^[a-zA-Z0-9_-]{11}$/.test(x.key));
+    return (v.find((x) => x.official) || v[0] || {}).key || "";
+  }
+  function showTrailer(key, title) {
+    const d = document.createElement("dialog");
+    d.className = "us-trailer-dialog cn-trailer";
+    d.innerHTML = `<header><strong dir="auto">${esc(title ? "Trailer · " + title : "Trailer")}</strong><button type="button">Close</button></header>`;
+    const f = document.createElement("iframe");
+    f.setAttribute("credentialless", "");
+    f.setAttribute("sandbox", "allow-scripts allow-same-origin allow-presentation");
+    f.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
+    f.allowFullscreen = true;
+    f.referrerPolicy = "strict-origin-when-cross-origin";
+    d.appendChild(f);
+    d.querySelector("button").onclick = () => d.close();
+    d.addEventListener("close", () => d.remove(), { once: true });
+    document.body.appendChild(d);
+    d.showModal();
+    f.src = "https://www.youtube-nocookie.com/embed/" + key + "?autoplay=1&playsinline=1";
+  }
+
   async function showHero(row, media, opts = {}) {
     const box = main.querySelector(".cn-hero");
     if (!box || !row) return;
@@ -329,7 +374,8 @@
     if (opts.buttons) heroButtons(row, media);
     const d = await info(row.id);
     if (gen !== state.gen || !state.hero || state.hero.row !== row) return;
-    const back = backdrop(row.id);
+    const ex = extras(row.id);
+    const back = ex.backdrop || backdrop(row.id);
     if (back) {
       root.classList.remove("cn-soft");
       picture(back);
@@ -339,12 +385,43 @@
     }
     box.querySelector(".cn-meta").innerHTML = facts(d);
     box.querySelector(".cn-story").textContent = (d && d.overview) || "";
-    const ex = extras(row.id);
+    const tag = box.querySelector(".cn-tag");
+    if (tag) tag.textContent = (d && d.tagline) || "";
     if (ex.logo) {
       logo.onload = () => logo.classList.add("on");
       logo.src = ex.logo;
       box.classList.add("has-logo");
     } else box.classList.remove("has-logo");
+    const payload = await tmdbOf(ex, media);
+    if (gen !== state.gen || !state.hero || state.hero.row !== row) return;
+    const story = storyFrom(payload, d && d.overview);
+    if (story) {
+      const st = box.querySelector(".cn-story");
+      st.textContent = story;
+      st.lang = /[\u0600-\u06ff]/.test(story) ? "ar" : "en";
+    }
+    const key = trailerOf(payload);
+    const acts = box.querySelector(".cn-acts");
+    if (key && acts && opts.buttons && !acts.querySelector('[data-b="trailer"]')) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "cn-btn g";
+      b.dataset.b = "trailer";
+      b.innerHTML = ic("film") + "Trailer";
+      b.onclick = () => showTrailer(key, parse(row.raw_title || row.title).title);
+      acts.appendChild(b);
+    }
+    if (opts.details && ex.cast && ex.cast.length) castRow(ex.cast);
+  }
+  function castRow(cast) {
+    const old = main.querySelector(".cn-cast");
+    if (old) old.remove();
+    const list = cast.filter((c) => c.name).slice(0, 14);
+    if (!list.length) return;
+    const sec = document.createElement("section");
+    sec.className = "cn-row cn-cast";
+    sec.innerHTML = '<h3>Cast</h3><div class="cn-strip">' + list.map((c) => `<div class="cn-person"><span class="cn-face">${c.photo ? `<img loading="lazy" alt="" src="${esc(c.photo)}">` : `<i>${esc(c.name.trim()[0] || "")}</i>`}</span><b dir="auto">${esc(c.name)}</b><small dir="auto">${esc(c.role)}</small></div>`).join("") + "</div>";
+    main.appendChild(sec);
   }
 
   /* ------------------------------------------------------------ continue watching (kept across restarts) */
@@ -571,14 +648,27 @@
     openCategory(cur, media);
   }
   function paintTabs(cats, cur, media) {
-    const shown = cats.slice(0, 7);
-    if (!shown.some((c) => c.id === cur.id)) shown[shown.length - 1] = cur;
     tabs.innerHTML =
-      shown.map((c) => `<button type="button" data-c="${esc(c.id)}" class="${c.id === cur.id ? "on" : ""}" dir="auto">${esc(c.title)}</button>`).join("") +
-      (cats.length > shown.length ? `<button type="button" class="cn-all">${ic("grid")}All ${cats.length}</button>` : "");
-    tabs.querySelectorAll("button[data-c]").forEach((b) => (b.onclick = () => openCategory(cats.find((c) => c.id === b.dataset.c), media, cats)));
-    const all = tabs.querySelector(".cn-all");
-    if (all) all.onclick = () => allFolders(cats, media);
+      `<button type="button" class="cn-all" title="All folders">${ic("grid")}<span>Folders</span><small>${cats.length}</small></button>` +
+      `<div class="cn-tabs-s">${cats.map((c) => `<button type="button" data-c="${esc(c.id)}" class="${c.id === cur.id ? "on" : ""}" dir="auto">${esc(c.title)}</button>`).join("")}</div>`;
+    const strip = tabs.querySelector(".cn-tabs-s");
+    strip.querySelectorAll("button[data-c]").forEach((b) => (b.onclick = () => openCategory(cats.find((c) => c.id === b.dataset.c), media, cats)));
+    tabs.querySelector(".cn-all").onclick = () => allFolders(cats, media);
+    // the mouse wheel moves the folders sideways
+    strip.addEventListener("wheel", (e) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        strip.scrollLeft += e.deltaY;
+      }
+    }, { passive: false });
+    const on = strip.querySelector("button.on");
+    if (on) on.scrollIntoView({ inline: "center", block: "nearest" });
+    const edge = () => {
+      tabs.classList.toggle("more-l", strip.scrollLeft > 4);
+      tabs.classList.toggle("more-r", strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 4);
+    };
+    strip.addEventListener("scroll", edge, { passive: true });
+    requestAnimationFrame(edge);
   }
   function allFolders(cats, media) {
     const pane = document.createElement("div");
@@ -607,8 +697,12 @@
   async function openCategory(cat, media, cats) {
     if (!cat) return;
     state.cat[account() + "|" + media] = cat;
-    if (cats) paintTabs(cats, cat, media);
-    else tabs.querySelectorAll("button[data-c]").forEach((b) => b.classList.toggle("on", b.dataset.c === cat.id));
+    const btn = [...tabs.querySelectorAll("button[data-c]")].find((b) => b.dataset.c === cat.id);
+    if (cats && !btn) paintTabs(cats, cat, media);
+    else {
+      tabs.querySelectorAll("button[data-c]").forEach((b) => b.classList.toggle("on", b.dataset.c === cat.id));
+      if (btn) btn.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+    }
     const gen = ++state.gen;
     state.items = [];
     state.page = 0;
@@ -683,7 +777,14 @@
     tabs.innerHTML = `<button type="button" class="cn-backb">${ic("back")}Back</button>`;
     tabs.querySelector(".cn-backb").onclick = back;
     main.scrollTop = 0;
-    main.innerHTML = heroHtml(true).replace("cn-hero", "cn-hero cn-full") + (media === "series" ? '<section class="cn-eps"><div class="cn-seasons"></div><div class="cn-strip cn-eplist"></div></section>' : "");
+    main.innerHTML = heroHtml(true).replace("cn-hero", "cn-hero cn-full") + (media === "series" ? `<section class="cn-eps"><div class="cn-seasons"></div><div class="cn-strip-w"><button type="button" class="cn-arrow l">${ic("left")}</button><div class="cn-strip cn-eplist"></div><button type="button" class="cn-arrow r">${ic("right")}</button></div></section>` : "");
+    main.querySelectorAll(".cn-eps .cn-arrow").forEach((a) => {
+      a.onclick = () => {
+        const st = main.querySelector(".cn-eplist");
+        st.scrollBy({ left: (a.classList.contains("l") ? -1 : 1) * st.clientWidth * 0.85, behavior: "smooth" });
+      };
+    });
+
     showHero(row, media, { buttons: true, details: true });
     if (media === "series") seasons(row);
   }
@@ -779,7 +880,15 @@
     const acc = account();
     const cont = get(CONT, []).find((x) => x.account === acc && x.key === "s|" + nice(series.raw_title || series.title));
     let at = cont ? Math.max(0, s.findIndex((x) => x.id === (cont.season && cont.season.id))) : 0;
-    box.innerHTML = s.map((x, i) => `<button type="button" data-i="${i}" class="${i === at ? "on" : ""}">${esc(x.title || "Season " + x.number)}${x.episode_count ? `<small>${x.episode_count}</small>` : ""}</button>`).join("");
+    await info(series.id);
+    if (gen !== state.gen) return;
+    const ex = extras(series.id);
+    const tm = (x) => (ex.seasonsList || []).find((t) => t.n === (parseInt(x.number, 10) || 0)) || null;
+    box.innerHTML = s.map((x, i) => {
+      const t = tm(x);
+      const pic = (t && t.poster) || ex.poster || art(series.id, "series");
+      return `<button type="button" data-i="${i}" class="${i === at ? "on" : ""}"><span class="cn-sp-pic">${pic ? `<img loading="lazy" alt="" src="${esc(pic)}">` : ""}</span><span class="cn-sp-t"><b>${esc(x.title || "Season " + x.number)}</b><small>${[x.episode_count ? x.episode_count + " episodes" : "", t && t.year].filter(Boolean).join(" · ")}</small></span></button>`;
+    }).join("");
     const show = async (i) => {
       at = i;
       box.querySelectorAll("button").forEach((b) => b.classList.toggle("on", +b.dataset.i === i));
@@ -792,7 +901,7 @@
         return;
       }
       if (gen !== state.gen || at !== i) return;
-      const still = backdrop(series.id) || art(series.id, "series");
+      const still = ex.backdrop || backdrop(series.id) || art(series.id, "series");
       list.innerHTML = "";
       eps.forEach((e) => {
         const b = document.createElement("button");
@@ -806,14 +915,40 @@
           `<span class="cn-ep-t" dir="auto">${esc(/^episode\s*\d+$/i.test(title) ? "Episode " + n : title || "Episode " + n)}</span>` +
           (cont && cont.ep && cont.ep.id === e.id ? `<span class="cn-prog"><i style="width:${Math.round(Math.max(0.03, cont.p || 0) * 100)}%"></i></span>` : "") +
           `<span class="cn-wide-play">${ic("play")}</span>`;
+        b.dataset.ep = n;
         b.onclick = () => play(e, { media: "series", series, season: s[i], episodes: eps });
         list.appendChild(b);
       });
+      stills(list, ex, parseInt(s[i].number, 10) || i + 1, gen);
       const last = list.querySelector(".cn-ep.last");
       if (last) last.scrollIntoView({ inline: "center", block: "nearest" });
     };
     box.querySelectorAll("button").forEach((b) => (b.onclick = () => show(+b.dataset.i)));
     show(at);
+  }
+
+  // the real picture and name of each episode, from TMDB (like the classic look)
+  const seasonData = new Map();
+  async function stills(list, ex, n, gen) {
+    if (!ex || !ex.tmdb || !E().tmdbGet) return;
+    const lang = storyLang() === "ar" ? "ar" : "en-US";
+    const k = ex.tmdb + ":" + n + ":" + lang;
+    if (!seasonData.has(k)) seasonData.set(k, E().tmdbGet("tv/" + ex.tmdb + "/season/" + n, { language: lang }).catch(() => null));
+    const data = await seasonData.get(k);
+    if (!data || !Array.isArray(data.episodes) || gen !== state.gen) return;
+    const by = new Map(data.episodes.map((e) => [e.episode_number, e]));
+    list.querySelectorAll(".cn-ep").forEach((b) => {
+      const e = by.get(+b.dataset.ep);
+      if (!e) return;
+      if (e.still_path) {
+        const pic = b.querySelector(".cn-pic");
+        pic.innerHTML = `<img loading="lazy" alt="" src="https://image.tmdb.org/t/p/w500${esc(e.still_path)}">`;
+        b.classList.add("still");
+      }
+      const name = String(e.name || "").trim();
+      if (name && !/^(الحلقة|episode)\s*\d+$/i.test(name)) b.querySelector(".cn-ep-t").textContent = name;
+      if (e.overview) b.title = e.overview;
+    });
   }
 
   /* ------------------------------------------------------------ search and favorites */
