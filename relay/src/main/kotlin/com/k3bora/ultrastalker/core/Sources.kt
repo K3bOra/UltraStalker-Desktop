@@ -173,6 +173,17 @@ object Sources {
         "ultrastalker.db", "manifest.json", "manual_tmdb.json",
     )
 
+    /* whatever the phone sent: the receiver's backup ZIP, a profiles.json, or a portals.txt */
+    fun readAny(name: String, bytes: ByteArray): Restored {
+        if (bytes.size >= 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) return readBackup(bytes)
+        if (bytes.size > 4 * 1024 * 1024) throw BackupError("This file is too large.")
+        val text = String(bytes).removePrefix("\uFEFF")
+        val js = if (text.trimStart().startsWith("[")) parseLoose(text) as? JsonArray else null
+        val list = js?.mapNotNull { (it as? JsonObject)?.let(::fromRow) } ?: parseText(text)
+        if (list.isEmpty()) throw BackupError(if (name.endsWith(".zip", true)) "This file is not a ZIP backup." else "No servers were found in this file.")
+        return Restored(dedupe(list), 0)
+    }
+
     fun readBackup(bytes: ByteArray): Restored {
         if (bytes.size > 128 * 1024 * 1024) throw BackupError("This backup is too large.")
         val files = HashMap<String, ByteArray>()
