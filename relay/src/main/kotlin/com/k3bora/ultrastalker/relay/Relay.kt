@@ -244,6 +244,13 @@ class Relay(
         return Reply.json(200, buildJsonObject { put("ok", true); put("url", "$self/play/$id.$ext") })
     }
 
+    /* the app asks for a ticket directly (no HTTP round trip) */
+    fun ticketUrl(d: JsonObject, self: String): String {
+        val r = makeTicket(d.toString().toByteArray(), self)
+        val js = Json.parseToJsonElement(r.body?.use { String(it.readBytes()) } ?: "{}").jsonObject
+        return js.str("url").ifEmpty { throw IllegalArgumentException(js.str("error").ifEmpty { "bad ticket" }) }
+    }
+
     private fun portalCall(d: JsonObject, params: JsonObject, token: String): JsonElement? {
         val endpoint = d.str("endpoint")
         val q = params.entries.joinToString("&") { (k, v) -> enc(k) + "=" + enc((v as? JsonPrimitive)?.contentOrNull ?: v.toString()) }
