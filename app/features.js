@@ -1,7 +1,7 @@
 /* Ultra Stalker for Windows — page side of the program's own features.
    - next episode: knows which episode is playing and which one comes after it
      (the player asks window.usDesktopNext; the next season is looked up when needed)
-   - opens the last live channel when the program starts (Settings → Program)
+   - opens Live TV at the last channel when the program starts, without playing it (Settings → Program)
    - "a new version is ready" from the program's updater */
 (function () {
   const N = window.usNative;
@@ -164,8 +164,14 @@
       return [...document.querySelectorAll("#browseItems .live-card")].find((c) => nameOf(c) === last.name) || null;
     }, 25000);
     if (!card || sel.value !== last.account || document.querySelector("#browseItems .live-card.dk-on")) return;
+    // only show where you were: nothing plays until you choose (no data used by itself)
     card.scrollIntoView({ block: "center" });
-    card.click();
+    card.classList.add("us-last");
+    try {
+      card.focus({ preventScroll: true });
+    } catch (_) {}
+    const clear = () => card.classList.remove("us-last");
+    card.addEventListener("click", clear, { once: true });
   }
   if ($("browseAccount")) (document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", openLast) : openLast());
 

@@ -243,15 +243,21 @@ test("no adult content: categories, items (also in All), search, playback", { ti
   assert.deepEqual(errors, []);
 });
 
-test("the program opens the last live channel at start; episodes know the next one", { timeout: 60000 }, async (t) => {
+test("the program opens Live TV at the last channel without playing it; episodes know the next one", { timeout: 60000 }, async (t) => {
   const { page, errors, account } = await open(t);
   await page.evaluate((account) => {
     localStorage.setItem("us-desk-last-channel", JSON.stringify({ account, cat: "1", name: "Channel 3" }));
     sessionStorage.clear();
   }, account);
   await page.reload();
-  await page.waitForFunction(() => document.querySelector("#browseItems .live-card.dk-on"), null, { timeout: 30000 });
-  assert.equal(await page.locator("#browseItems .live-card.dk-on").evaluate((c) => c.dataset.t || c.title || c.textContent.trim()), "Channel 3");
+  await page.waitForFunction(() => document.querySelector("#browseItems .live-card.us-last"), null, { timeout: 30000 });
+  assert.equal(await page.locator("#browseItems .live-card.us-last").evaluate((c) => c.dataset.t || c.title || c.textContent.trim()), "Channel 3");
+  // nothing plays by itself
+  await page.waitForTimeout(2500);
+  assert.equal(await page.locator("#browseItems .live-card.dk-on").count(), 0);
+  assert.equal(await page.evaluate(() => window.__t.places.length + window.__t.cmds.length), 0);
+  await page.locator("#browseItems .live-card.us-last").click();
+  await page.waitForFunction(() => document.querySelector("#browseItems .live-card.dk-on"), null, { timeout: 15000 });
   await t.test("the Live TV screen's player goes into the mini window and comes back", async () => {
     await page.waitForFunction(() => document.querySelector("#dkTvScreen .usp:not(.hidden)"));
     await page.locator("#dkTvScreen .usp-stage").hover();

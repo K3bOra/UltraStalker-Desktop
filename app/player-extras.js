@@ -462,7 +462,7 @@ body.us-mini .usp-menu{max-height:calc(100% - 80px)}
   function menuEnd() {
     let h = "";
     const resume = store.get("us-desk-last-live", "1") === "1";
-    h += `<h4>Program</h4><button type="button" data-xl="1" class="${resume ? "on" : ""}">${resume ? "✓ " : ""}Open the last channel at start<span class="usx-ar">يفتح آخر قناة كانت شغالة أول ما البرنامج يفتح</span></button>`;
+    h += `<h4>Program</h4><button type="button" data-xl="1" class="${resume ? "on" : ""}">${resume ? "✓ " : ""}Open Live TV at the last channel<span class="usx-ar">يفتح اللايف على آخر قناة من غير ما يشغّلها</span></button>`;
     h += '<h4>Shortcuts · الاختصارات</h4><div class="usx-keys">' + [
       ["Space", "Play / pause · تشغيل وإيقاف"],
       ["← →", "10 seconds · عشر ثواني"],
