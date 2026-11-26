@@ -665,3 +665,11 @@ dialog.cn-trailer iframe { display: block; width: 100%; aspect-ratio: 16 / 9; bo
 #usCine .cn-story, #usCine .cn-tag { width: fit-content; }
 /* 2.8.2 — the last channel is shown at start, not played */
 html body.desk #browseItems .live-card.us-last:not(.dk-on):not(#_) { box-shadow: inset 0 0 0 1.5px rgba(240,207,122,.6), 0 10px 30px -18px rgba(226,184,87,.6) !important; }
+/* 2.8.3 — smooth "playing" bars on the live channel (app/features.js) */
+html body.desk.dk-tv-mode #browseItems .live-card.dk-on:not(#_):not(#__) .item-title:after { content: none !important; display: none !important; animation: none !important; }
+#browseItems .us-eq { display: inline-flex; align-items: flex-end; gap: 2.5px; height: 12px; margin-left: 9px; vertical-align: -1px; }
+#browseItems .us-eq i { display: block; width: 3px; height: 12px; border-radius: 2px; background: linear-gradient(180deg, #f6dc9c, #d9ad55); transform-origin: 50% 100%; transform: scaleY(.4); will-change: transform; animation: usEqBar 1.1s cubic-bezier(.45,.05,.55,.95) infinite alternate; }
+#browseItems .us-eq i:nth-child(2) { animation-duration: .8s; animation-delay: -.35s; }
+#browseItems .us-eq i:nth-child(3) { animation-duration: 1.35s; animation-delay: -.7s; }
+@keyframes usEqBar { 0% { transform: scaleY(.3); } 100% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { #browseItems .us-eq i { animation: none; transform: scaleY(.7); } }

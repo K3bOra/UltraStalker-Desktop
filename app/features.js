@@ -175,6 +175,28 @@
   }
   if ($("browseAccount")) (document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", openLast) : openLast());
 
+  /* ------------------------------------------------------------ the "playing" bars next to the live channel
+     Three real bars that only change their height on the graphics card (the old picture
+     was redrawn every frame and looked stuck while the computer was busy). */
+  function eqSync() {
+    const on = document.querySelector("#browseItems .live-card.dk-on .item-title");
+    document.querySelectorAll("#browseItems .us-eq").forEach((e) => {
+      if (e.parentNode !== on) e.remove();
+    });
+    if (on && !on.querySelector(".us-eq")) {
+      const eq = document.createElement("span");
+      eq.className = "us-eq";
+      eq.setAttribute("aria-hidden", "true");
+      eq.innerHTML = "<i></i><i></i><i></i>";
+      on.appendChild(eq);
+    }
+  }
+  const items = $("browseItems");
+  if (items) {
+    new MutationObserver(eqSync).observe(items, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+    eqSync();
+  }
+
   /* ------------------------------------------------------------ updates */
   if (N.update) {
     let toast = null, said = "";

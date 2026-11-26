@@ -258,6 +258,12 @@ test("the program opens Live TV at the last channel without playing it; episodes
   assert.equal(await page.evaluate(() => window.__t.places.length + window.__t.cmds.length), 0);
   await page.locator("#browseItems .live-card.us-last").click();
   await page.waitForFunction(() => document.querySelector("#browseItems .live-card.dk-on"), null, { timeout: 15000 });
+  // the playing channel shows three smooth bars (moved on the graphics card, not redrawn)
+  await page.waitForFunction(() => document.querySelectorAll("#browseItems .live-card.dk-on .us-eq i").length === 3);
+  assert.equal(await page.locator("#browseItems .us-eq").count(), 1);
+  await page.locator("#browseItems .live-card.dk-on").screenshot({ path: path.join(os.tmpdir(), "us-eq.png") });
+  assert.match(await page.locator("#browseItems .us-eq i").first().evaluate((i) => getComputedStyle(i).animationName), /usEqBar/);
+  assert.equal(await page.locator("#browseItems .live-card.dk-on .item-title").evaluate((t) => getComputedStyle(t, "::after").content), "none");
   await t.test("the Live TV screen's player goes into the mini window and comes back", async () => {
     await page.waitForFunction(() => document.querySelector("#dkTvScreen .usp:not(.hidden)"));
     await page.locator("#dkTvScreen .usp-stage").hover();
